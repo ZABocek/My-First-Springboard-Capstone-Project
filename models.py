@@ -15,6 +15,7 @@ class User(db.Model):
     id = db.Column(
         db.Integer,
         primary_key=True,
+        autoincrement=True,
     )
 
     email = db.Column(
@@ -75,6 +76,51 @@ class User(db.Model):
 
         return False
     
+class Ingredients(db.Model):
+    """Ingredients from the API that the user can select"""
+
+    __tablename__ = 'ingredients'
+
+    id = db.Column(
+        db.Integer,
+        primary_key=True,
+    )
+
+    name = db.Column(
+        db.Text,
+        nullable=False,
+        unique=True,
+    )
+
+    is_alcohol = db.Column(
+        db.Boolean,
+        nullable=False,
+    )
+
+class Cocktails(db.Model):
+    """Cocktails a user selects for their account or self-made coctails"""
+
+    __tablename__ = 'cocktails'
+
+    id = db.Column(
+        db.Integer,
+        primary_key=True,
+    )
+
+    name = db.Column(
+        db.Text,
+        nullable=False,
+        unique=True,
+    )
+
+    instructions = db.Column(
+        db.Text,
+    )
+
+    sweet = db.Column(
+        db.Boolean,
+    )
+
 def connect_db(app):
     """Connect this database to provided Flask app. 
     You should call this in your Flask app."""
