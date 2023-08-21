@@ -10,7 +10,7 @@ db = SQLAlchemy()
 class User(db.Model):
     """User in the system."""
 
-    __tablename__ = 'user'
+    __tablename__ = "user"
     
     id = db.Column(
         db.Integer,
@@ -79,11 +79,12 @@ class User(db.Model):
 class Ingredients(db.Model):
     """Ingredients from the API that the user can select"""
 
-    __tablename__ = 'ingredients'
+    __tablename__ = "ingredients"
 
     id = db.Column(
         db.Integer,
         primary_key=True,
+        autoincrement=True,
     )
 
     name = db.Column(
@@ -94,17 +95,18 @@ class Ingredients(db.Model):
 
     is_alcohol = db.Column(
         db.Boolean,
-        nullable=False,
+        nullable=True,
     )
 
 class Cocktails(db.Model):
-    """Cocktails a user selects for their account or self-made coctails"""
+    """Cocktails a user selects for their account or self-made coctails, can also enter instructions for how to make, and have the option of labeling cocktail as sweet or dry"""
 
-    __tablename__ = 'cocktails'
+    __tablename__ = "cocktails"
 
     id = db.Column(
         db.Integer,
         primary_key=True,
+        autoincrement=True,
     )
 
     name = db.Column(
@@ -115,11 +117,31 @@ class Cocktails(db.Model):
 
     instructions = db.Column(
         db.Text,
+        nullable=True,
     )
 
     sweet = db.Column(
         db.Boolean,
+        nullable=True,
     )
+
+class Cocktails_Ingredients(db.Model):
+    """binds cocktails table and ingredients table together and allows user to select quantity"""
+
+    __tablename__ = "cocktails_ingredients"
+
+    id = db.Column(
+        db.Integer,
+        primary_key=True,
+        autoincrement=True,
+    )
+
+    cocktail_id = db.Column(
+        db.Integer,
+        db.ForeignKey('cocktails.id')
+    )
+
+    
 
 def connect_db(app):
     """Connect this database to provided Flask app. 
