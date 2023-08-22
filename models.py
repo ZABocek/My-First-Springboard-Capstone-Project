@@ -34,6 +34,10 @@ class User(db.Model):
         db.Text,
         nullable=False,
     )
+
+    cocktails1 = db.relationship('Cocktails', secondary='cocktails_users', backref='user')
+    ct_users = db.relationship('Cocktails_Users', backref='user')
+    use_fav_ingr = db.relationship('UserFavoriteIngredients', backref='user')
     
     def __repr__(self):
         return f"<User #{self.id}: {self.username}, {self.email}>"
@@ -98,6 +102,9 @@ class Ingredients(db.Model):
         nullable=True,
     )
 
+    ct_ingr = db.relationship('Cocktails_Ingredients', backref='ingredients')
+    use_fav_ingr2 = db.relationship('UserFavoriteIngredients', backref='ingredients')
+
 class Cocktails(db.Model):
     """Cocktails a user selects for their account or self-made coctails, can also enter instructions for how to make, and have the option of labeling cocktail as sweet or dry"""
 
@@ -125,6 +132,10 @@ class Cocktails(db.Model):
         nullable=True,
     )
 
+    user1 = db.relationship('User', secondary=cocktails_users, backref='cocktails')
+    ct_users2 = db.relationship('Cocktails_Users', backref='cocktails')
+    ct_ingr2 = db.relationship('Cocktails_Ingredients', backref='cocktails')
+
 class Cocktails_Ingredients(db.Model):
     """binds cocktails table and ingredients table together and allows user to select quantity"""
 
@@ -138,10 +149,48 @@ class Cocktails_Ingredients(db.Model):
 
     cocktail_id = db.Column(
         db.Integer,
-        db.ForeignKey('cocktails.id')
+        db.ForeignKey('cocktails.id'),
     )
 
+    ingredient_id = db.Column(
+        db.Integer,
+        db.ForeignKey('ingredients.id'),
+    )
+
+    quantity = db.Column(
+        db.Text,
+        nullable=False,
+    )
+
+class Cocktails_Users(db.Model):
+    """This table is set up so that users can create their own cocktails if they want to."""
+        
+    __tablename__ = "cocktails_users"
+
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey('user.id'),
+    )
+
+    cocktail_id = db.Column(
+        db.Integer,
+        db.ForeignKey('cocktails.id'),
+    )
+
+class UserFavoriteIngredients(db.Model):
+    """This table is so users can save their favorite ingredients for making cocktails in their account"""
     
+    __tablename__ = "user_favorite_ingredients"
+
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey('user.id'),
+    )
+
+    ingredient_id = db.Column(
+        db.Integer,
+        db.ForeignKey('ingredients.id')
+    )
 
 def connect_db(app):
     """Connect this database to provided Flask app. 
