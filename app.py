@@ -4,8 +4,8 @@ from flask import Flask, render_template, request, flash, redirect, session, g, 
 from flask_debugtoolbar import DebugToolbarExtension
 from sqlalchemy.exc import IntegrityError
 
-from forms import UserAddForm, UserEditForm, LoginForm, MessageForm
-from models import db, connect_db, User, Message
+from forms import RegisterForm, LoginForm
+from models import db, connect_db, User
 
 CURR_USER_KEY = "curr_user"
 
