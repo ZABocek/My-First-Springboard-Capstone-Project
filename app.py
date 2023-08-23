@@ -114,3 +114,8 @@ def logout():
     flash("You have successfully logged out.", 'success')
     return redirect("/login")
 
+@app.route('/users/<int:user_id>')
+def users_show(user_id):
+    """Show user profile."""
+
+    user = User.query.get_or_404(user_id)
