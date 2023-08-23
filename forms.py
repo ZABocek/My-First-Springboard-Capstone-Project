@@ -18,6 +18,9 @@ class SearchCocktailsForm(FlaskForm):
     ingredient = StringField("Ingredient Name", validators=[InputRequired()])
     cocktailname = StringField("Cocktail Name", required=False)
 
+class AddCocktailToAccountForm(FlaskForm):
+    cocktailname = StringField("Cocktail Name", validators=[InputRequired()])
+
 class AddNewCocktailForm(FlaskForm):
     cocktailname = StringField("Cocktail Name", validators=[InputRequired()])
     ingredient = StringField("Ingredient Name", validators=[InputRequired()])
