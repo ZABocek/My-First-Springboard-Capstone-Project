@@ -4,7 +4,7 @@ from flask import Flask, render_template, request, flash, redirect, session, g, 
 from flask_debugtoolbar import DebugToolbarExtension
 from sqlalchemy.exc import IntegrityError
 
-from forms import RegisterForm, LoginForm
+from forms import RegisterForm, LoginForm, AddCocktailToAccountForm
 from models import db, connect_db, User
 
 CURR_USER_KEY = "curr_user"
@@ -28,94 +28,105 @@ connect_db(app)
 # User signup/login/logout
 
 
-@app.before_request
-def add_user_to_g():
-    """If we're logged in, add curr user to Flask global."""
+@app.route("/")
+def root():
+    """Homepage: redirect to /playlists."""
+    print("****************session************")
+    print(session["username"])
+    print(session["user_id"])
 
-    if CURR_USER_KEY in session:
-        g.user = User.query.get(session[CURR_USER_KEY])
-
-    else:
-        g.user = None
-
-def do_login(user):
-    """Log in user."""
-
-    session[CURR_USER_KEY] = user.id
+    print("****************session************")
 
 
-def do_logout():
-    """Logout user."""
+    return render_template("index.html")
 
-    if CURR_USER_KEY in session:
-        del session[CURR_USER_KEY]
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    
 
-@app.route('/signup', methods=["GET", "POST"])
-def signup():
-    """Handle user signup.
+    if 'user_id' in session:
+        return redirect(f"/users/{session['user_id']}")
 
-    Create new user and add to DB. Redirect to home page.
+    form = RegisterForm()
+    username = form.username.data
+    password = form.password.data
 
-    If form not valid, present form.
-
-    If the there already is a user with that username: flash message
-    and re-present form.
-    """
-    if CURR_USER_KEY in session:
-        del session[CURR_USER_KEY]
-    form = UserAddForm()
+    existing_user_count = User.query.filter_by(username=name).count()
+    if existing_user_count > 0:
+        flash("User already exists")
+        return redirect('/login')
 
     if form.validate_on_submit():
-        try:
-            user = User.signup(
-                username=form.username.data,
-                password=form.password.data,
-                email=form.email.data,
-            )
-            db.session.commit()
+        user = User.register(username, password)
+        db.session.add(user)
+        db.session.commit()
+        session['user_id'] = user.id
+        
+        print(user.id)
+        session['user_id'] = user.id
+        print('id', session['user_id'])
 
-        except IntegrityError as e:
-            flash("Username already taken", 'danger')
-            return render_template('users/signup.html', form=form)
-
-        do_login(user)
-
-        return redirect("/")
+        return redirect(f"/users/{user.id}")
 
     else:
-        return render_template('users/signup.html', form=form)
-    
-@app.route('/login', methods=["GET", "POST"])
+        return render_template("users/register.html", form=form)
+
+@app.route("/login", methods=["GET", "POST"])
 def login():
-    """Handle user login."""
+
+    if "user_id" in session:
+        return redirect(f"/users/{session['user_id']}")
 
     form = LoginForm()
 
     if form.validate_on_submit():
-        user = User.authenticate(form.username.data,
-                                 form.password.data)
+        username = form.username.data
+        password = form.password.data
 
+        user = User.authenticate(username, password)  
         if user:
-            do_login(user)
-            flash(f"Hello, {user.username}!", "success")
-            return redirect("/")
+            return redirect(f"/users/{user.id}")
+        else:
+            form.username.errors = ["Invalid username/password."]
+            return render_template("users/login.html", form=form)
 
-        flash("Invalid credentials.", 'danger')
+    return render_template("users/login.html", form=form)
 
-    return render_template('users/login.html', form=form)
-
-
-@app.route('/logout')
+@app.route("/logout")
 def logout():
-    """Handle logout of user."""
-
-    do_logout()
-
-    flash("You have successfully logged out.", 'success')
+    if "user_id" in session:
+        session.pop("username")
     return redirect("/login")
 
-@app.route('/users/<int:user_id>')
-def users_show(user_id):
-    """Show user profile."""
+@app.route("/users/<int:user_id>", methods=["GET", "POST"])
+def profile(user_id):
+    if session.get["user_id"] not in session:
+        flash("You must be logged in to view!")
+        return redirect("/")
+    form = AddCocktailToAccountForm()
+    cocktails = Cocktail.query.filter_by(user_id=session['user_id']).all()
+  
+    if form.validate_on_submit():
+        
+        
+        name = form.name.data
+        new_cocktail = Cocktail(name=name, user_id=session['user_id'])
+        db.session.add(new_cocktail)
+        db.session.commit()
+        cocktails.append(new_cocktail)
 
-    user = User.query.get_or_404(user_id)
+    return render_template("users/profile.html", cocktails=cocktails, form=form)
+
+@app.route("/cocktails/<int:cocktail_id>")
+def show_user_cocktails(cocktail_id):
+    """Show detail on specific playlist."""
+
+    # ADD THE NECESSARY CODE HERE FOR THIS ROUTE TO WORK
+    cocktail = Cocktail.query.get_or_404(cocktail_id)
+    ingredients = CocktailIngredient.query.filter_by(cocktail_id=cocktail_id)
+
+    for b in ingredients:
+        print('testing',b)
+
+
+    return render_template("cocktail/cocktail.html", cocktail=cocktail)
