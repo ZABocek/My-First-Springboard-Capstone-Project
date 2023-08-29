@@ -5,7 +5,7 @@ from flask_debugtoolbar import DebugToolbarExtension
 from sqlalchemy.exc import IntegrityError
 
 from forms import RegisterForm, LoginForm, AddCocktailToAccountForm
-from models import db, connect_db, User
+from models import db, connect_db, User, Ingredients, Cocktail, Cocktails_Ingredients, Cocktails_Users
 
 CURR_USER_KEY = "curr_user"
 
@@ -30,7 +30,7 @@ connect_db(app)
 
 @app.route("/")
 def root():
-    """Homepage: redirect to /playlists."""
+    """Homepage: redirect to /cocktails."""
     print("****************session************")
     print(session["username"])
     print(session["user_id"])
@@ -51,7 +51,7 @@ def register():
     username = form.username.data
     password = form.password.data
 
-    existing_user_count = User.query.filter_by(username=name).count()
+    existing_user_count = User.query.filter_by(username=username).count()
     if existing_user_count > 0:
         flash("User already exists")
         return redirect('/login')
@@ -123,7 +123,7 @@ def show_user_cocktails(cocktail_id):
 
     # ADD THE NECESSARY CODE HERE FOR THIS ROUTE TO WORK
     cocktail = Cocktail.query.get_or_404(cocktail_id)
-    ingredients = CocktailIngredient.query.filter_by(cocktail_id=cocktail_id)
+    ingredients = Cocktails_Ingredients.query.filter_by(cocktail_id=cocktail_id)
 
     for b in ingredients:
         print('testing',b)
