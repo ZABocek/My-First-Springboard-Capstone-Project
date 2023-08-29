@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="jumbotron">
+  <h1>{{ cocktail.name }}!</h1>
+  {% if cocktail.id %}
+  <p class="lead">{{ cocktail.id }}</p>
+  {% endif %}
+</div>
+
+{% if cocktail.ingredients %}
+<p>
+  <b>Ingredients:</b>
+  {% for ingredient in cocktail.ingredients %}
+  <p>
+  <a href="/ingredients/{{ ingredients.id }}"><span class="badge badge-primary">{{ ingredients.name }}</span></a> <small>{{ingredients.is_alcohol}}</small>
+</p>
+  {% endfor %}
+</p>
+{% else %}
+<p>There are no ingredients yet in this cocktail, add some!</p>
+{% endif %}
+
+<p>
+  <a class="btn btn-primary" href="/cocktails/{{ cocktail.id }}/add-ingredient">
+    Add Ingredient To Cocktail
+  </a>
+</p>
+
+{% endblock %}

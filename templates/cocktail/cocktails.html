@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h1>See all the cocktails!</h1>
+
+<ul>
+{% for cocktail in cocktails %}
+  <li>
+     <a href="/cocktails/{{ cocktail.id }}">{{ cocktail.name }}</a>
+  </li>
+{% endfor %}
+</ul>
+
+<p><a class="btn btn-primary" href="/cocktails/add">Add a cocktail</a></p>
+
+{% endblock %}
