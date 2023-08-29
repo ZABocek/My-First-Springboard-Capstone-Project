@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="jumbotron">
+  <h1>{{ ingredients.name }}</h1>
+  <p class="alcohol?">&ndash; {{ ingredients.is_alcohol }}</p>
+</div>
+<ul>
+  {% for cocktail in cocktails   %}
+  <li>
+     <a href="/cocktails/{{ cocktail.id }}">{{ cocktail.name }}</a>
+  </li>
+{% endfor %}
+</ul>
+
+{% endblock %}
