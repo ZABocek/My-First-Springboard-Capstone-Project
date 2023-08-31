@@ -8,7 +8,7 @@ from wtforms.validators import InputRequired, Length, NumberRange, URL, Optional
 class RegisterForm(FlaskForm):
     username = StringField("Username", validators=[InputRequired()])
     password = PasswordField("Password", validators=[InputRequired(), Length(min=8)])
-    email = StringField('E-mail', validators=[DataRequired(), Email()])
+    email = StringField('E-mail', validators=[InputRequired(), Email()])
 
 class LoginForm(FlaskForm):
     username = StringField("Username", validators=[InputRequired()])
