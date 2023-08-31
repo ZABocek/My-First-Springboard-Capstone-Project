@@ -15,11 +15,9 @@ class LoginForm(FlaskForm):
     password = PasswordField("Password", validators=[InputRequired(), Length(min=8)])
 
 class SearchCocktailsForm(FlaskForm):
-    ingredient = StringField("Ingredient Name", validators=[InputRequired()])
+    ingredient = StringField("Ingredient Name", required=False)
     cocktailname = StringField("Cocktail Name", required=False)
-
-class AddCocktailToAccountForm(FlaskForm):
-    cocktailname = StringField("Cocktail Name", validators=[InputRequired()])
+    instructions = TextAreaField("Preparation Instructions", required=False)
 
 class AddNewCocktailForm(FlaskForm):
     cocktailname = StringField("Cocktail Name", validators=[InputRequired()])
