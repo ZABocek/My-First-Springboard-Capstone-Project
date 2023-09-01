@@ -31,6 +31,12 @@ connect_db(app)
 @app.route("/")
 def root():
     """Homepage: redirect to /cocktails."""
+    print("****************session************")
+    print(session["username"])
+    print(session["user_id"])
+
+    print("****************session************")
+
 
     return render_template("index.html")
 
