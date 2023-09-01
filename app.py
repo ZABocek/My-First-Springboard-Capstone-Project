@@ -4,8 +4,8 @@ from flask import Flask, render_template, request, flash, redirect, session, g, 
 from flask_debugtoolbar import DebugToolbarExtension
 from sqlalchemy.exc import IntegrityError
 
-from forms import RegisterForm, LoginForm, SearchCocktailsForm, AddNewCocktailForm
-from models import db, connect_db, User, Ingredients, Cocktail, Cocktails_Ingredients, Cocktails_Users, UserFavoriteIngredients
+from forms import RegisterForm, LoginForm, AddNewCocktailForm, AddCocktailToAccountForm, IngredientForm
+from models import db, connect_db, User, Ingredients, Cocktail, Cocktails_Ingredients, Cocktails_Users
 
 CURR_USER_KEY = "curr_user"
 
@@ -166,36 +166,36 @@ def show_ingredient(id):
 @app.route("/ingredients/add", methods=["GET", "POST"])
 def add_ingredient():
     
-    form = SongForm()
+    form = IngredientForm()
 
     if form.validate_on_submit():
-        title = request.form['title']
-        artist = request.form['artist']
-        new_song = Song(title=title, artist=artist)
-        db.session.add(new_song)
+        id = request.form['id']
+        name = request.form['name']
+        new_ingredient = Ingredients(id=id,name=name)
+        db.session.add(new_ingredient)
         db.session.commit()
-        return redirect("/songs")
+        return redirect("/ingredients")
 
-    return render_template("song/new_song.html", form=form)
+    return render_template("ingredient/new_ingredient.html", form=form)
 
 
 
-@app.route("/playlists/<int:playlist_id>/add-song", methods=["GET", "POST"])
-def add_song_to_playlist(playlist_id):
+@app.route("/cocktails/<int:cocktail_id>/add-ingredient", methods=["GET", "POST"])
+def add_ingredient_to_cocktail(cocktail_id):
     """Add a playlist and redirect to list."""
     
-    playlist = Playlist.query.get_or_404(playlist_id)
-    form = NewSongForPlaylistForm()
+    cocktail = Cocktail.query.get_or_404(cocktail_id)
+    form = AddNewCocktailForm()
 
-    curr_on_playlist = [s.id for s in playlist.songs]
-    form.song.choices = (db.session.query(Song.id, Song.title).filter(Song.id.notin_(curr_on_playlist)).all())
+    curr_on_cocktail = [s.id for s in cocktail.ingredients]
+    form.ingredient.choices = (db.session.query(Ingredients.id, Ingredients.name).filter(Ingredients.id.notin_(curr_on_cocktail)).all())
 
     if form.validate_on_submit():
 
-        playlist_song = PlaylistSong(song_id=form.song.data, playlist_id=playlist_id)
-        db.session.add(playlist_song)
+        cocktails_users = Cocktails_Users(user_id=form.user.data, cocktail_id=cocktail_id)
+        db.session.add(cocktails_users)
         db.session.commit()
 
-        return redirect(f"/playlists/{playlist_id}")
+        return redirect(f"/cocktails/{cocktail_id}")
 
-    return render_template("song/add_song_to_playlist.html", playlist=playlist, form=form)
+    return render_template("ingredient/add_ingredient_to_cocktail.html", cocktail=cocktail, form=form)
