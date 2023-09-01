@@ -176,6 +176,9 @@ class Cocktails_Users(db.Model):
         db.Integer,
         db.ForeignKey('cocktails.id'),
     )
+    
+    user2 = db.relationship('User', backref='cocktails_users')
+    ct_users3 = db.relationship('Cocktail', backref='cocktails_users')
 
 class UserFavoriteIngredients(db.Model):
     """This table is so users can save their favorite ingredients for making cocktails in their account"""
