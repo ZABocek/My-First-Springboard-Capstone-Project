@@ -2,18 +2,35 @@
 
 from wtforms import SelectField
 from flask_wtf import FlaskForm
-from wtforms import validators, StringField, EmailField, IntegerField, SelectField, TextAreaField, BooleanField, PasswordField
-from wtforms.validators import InputRequired, Length, NumberRange, URL, Optional
+from wtforms import StringField, EmailField, IntegerField, SelectField, TextAreaField, BooleanField, PasswordField
+from wtforms.validators import DataRequired, Email, InputRequired, Length, NumberRange, URL, Optional
 
-class RegisterForm(FlaskForm):
-    username = StringField("username", validators=[InputRequired()])
-    password = PasswordField("password", validators=[InputRequired(), Length(min=8)])
-    email = EmailField('E-mail', validators=[InputRequired()])
+class UserAddForm(FlaskForm):
+    """Form for adding users."""
+
+    username = StringField('Username', validators=[DataRequired()])
+    email = StringField('E-mail', validators=[DataRequired(), Email()])
+    password = PasswordField('Password', validators=[Length(min=6)])
+    image_url = StringField('(Optional) Image URL')
+
+
+class UserEditForm(FlaskForm):
+    """Form for editing users."""
+
+    username = StringField('Username', validators=[DataRequired()])
+    email = StringField('E-mail', validators=[DataRequired(), Email()])
+    image_url = StringField('(Optional) Image URL')
+    header_image_url = StringField('(Optional) Header Image URL')
+    bio = TextAreaField('(Optional) Tell us about yourself')
+    password = PasswordField('Password', validators=[Length(min=6)])
+
 
 class LoginForm(FlaskForm):
-    username = StringField("username", validators=[InputRequired()])
-    password = PasswordField("password", validators=[InputRequired(), Length(min=8)])
-    
+    """Login form."""
+
+    username = StringField('Username', validators=[DataRequired()])
+    password = PasswordField('Password', validators=[Length(min=6)])
+
 class IngredientForm(FlaskForm):
     id = IntegerField("id")
     name = StringField("name")
