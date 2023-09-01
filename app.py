@@ -4,7 +4,7 @@ from flask import Flask, render_template, request, flash, redirect, session, g, 
 from flask_debugtoolbar import DebugToolbarExtension
 from sqlalchemy.exc import IntegrityError
 
-from forms import RegisterForm, LoginForm, SearchCocktailsForm, AddNewCocktailForm
+from forms import RegisterForm, LoginForm, SearchCocktailsForm, AddNewCocktailForm, AddCocktailToAccountForm, IngredientForm
 from models import db, connect_db, User, Ingredients, Cocktail, Cocktails_Ingredients, Cocktails_Users, UserFavoriteIngredients
 
 CURR_USER_KEY = "curr_user"
@@ -166,17 +166,17 @@ def show_ingredient(id):
 @app.route("/ingredients/add", methods=["GET", "POST"])
 def add_ingredient():
     
-    form = SongForm()
+    form = IngredientForm()
 
     if form.validate_on_submit():
-        title = request.form['title']
-        artist = request.form['artist']
-        new_song = Song(title=title, artist=artist)
-        db.session.add(new_song)
+        id = request.form['id']
+        name = request.form['name']
+        new_ingredient = Ingredients(id=id,name=name)
+        db.session.add(new_ingredient)
         db.session.commit()
-        return redirect("/songs")
+        return redirect("/ingredients")
 
-    return render_template("song/new_song.html", form=form)
+    return render_template("ingredient/new_ingredient.html", form=form)
 
 
 

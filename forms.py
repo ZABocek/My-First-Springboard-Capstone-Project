@@ -6,13 +6,18 @@ from wtforms import validators, StringField, EmailField, IntegerField, SelectFie
 from wtforms.validators import InputRequired, Length, NumberRange, URL, Optional
 
 class RegisterForm(FlaskForm):
-    username = StringField("Username", validators=[InputRequired()])
-    password = PasswordField("Password", validators=[InputRequired(), Length(min=8)])
+    username = StringField("username", validators=[InputRequired()])
+    password = PasswordField("password", validators=[InputRequired(), Length(min=8)])
     email = EmailField('E-mail', validators=[InputRequired()])
 
 class LoginForm(FlaskForm):
-    username = StringField("Username", validators=[InputRequired()])
-    password = PasswordField("Password", validators=[InputRequired(), Length(min=8)])
+    username = StringField("username", validators=[InputRequired()])
+    password = PasswordField("password", validators=[InputRequired(), Length(min=8)])
+    
+class IngredientForm(FlaskForm):
+    id = IntegerField("id")
+    name = StringField("name")
+    is_alcohol = BooleanField("is_alcohol")
 
 class SearchCocktailsForm(FlaskForm):
     ingredient = StringField("Ingredient Name", required=False)
