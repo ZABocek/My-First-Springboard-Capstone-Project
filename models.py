@@ -172,12 +172,12 @@ class Cocktails_Users(db.Model):
         db.ForeignKey('user.id'),
         primary_key=True
     )
-
     cocktail_id = db.Column(
         db.Integer,
         db.ForeignKey('cocktails.id'),
         primary_key=True
     )
+    state = db.Column(db.String, default='pending')
 
 class UserFavoriteIngredients(db.Model):
     """This table is so users can save their favorite ingredients for making cocktails in their account"""
