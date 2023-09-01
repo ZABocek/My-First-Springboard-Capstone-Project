@@ -180,22 +180,22 @@ def add_ingredient():
 
 
 
-@app.route("/playlists/<int:playlist_id>/add-song", methods=["GET", "POST"])
-def add_song_to_playlist(playlist_id):
+@app.route("/cocktails/<int:cocktail_id>/add-ingredient", methods=["GET", "POST"])
+def add_ingredient_to_cocktail(cocktail_id):
     """Add a playlist and redirect to list."""
     
-    playlist = Playlist.query.get_or_404(playlist_id)
-    form = NewSongForPlaylistForm()
+    cocktail = Cocktail.query.get_or_404(cocktail_id)
+    form = AddNewCocktailForm()
 
-    curr_on_playlist = [s.id for s in playlist.songs]
-    form.song.choices = (db.session.query(Song.id, Song.title).filter(Song.id.notin_(curr_on_playlist)).all())
+    curr_on_cocktail = [s.id for s in cocktail.ingredients]
+    form.ingredient.choices = (db.session.query(Ingredients.id, Ingredients.name).filter(Ingredients.id.notin_(curr_on_cocktail)).all())
 
     if form.validate_on_submit():
 
-        playlist_song = PlaylistSong(song_id=form.song.data, playlist_id=playlist_id)
-        db.session.add(playlist_song)
+        cocktails_users = Cocktails_Users(user_id=form.user.data, cocktail_id=cocktail_id)
+        db.session.add(cocktails_users)
         db.session.commit()
 
-        return redirect(f"/playlists/{playlist_id}")
+        return redirect(f"/cocktails/{cocktail_id}")
 
-    return render_template("song/add_song_to_playlist.html", playlist=playlist, form=form)
+    return render_template("ingredient/add_ingredient_to_cocktail.html", cocktail=cocktail, form=form)

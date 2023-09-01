@@ -19,9 +19,9 @@ class IngredientForm(FlaskForm):
     name = StringField("name")
     is_alcohol = BooleanField("is_alcohol")
 
-class SearchCocktailsForm(FlaskForm):
+class AddCocktailToAccountForm(FlaskForm):
     ingredient = StringField("Ingredient Name", required=False)
-    cocktailname = StringField("Cocktail Name", required=False)
+    cocktailname = StringField("Cocktail Name", validators=[InputRequired()])
     instructions = TextAreaField("Preparation Instructions", required=False)
 
 class AddNewCocktailForm(FlaskForm):
