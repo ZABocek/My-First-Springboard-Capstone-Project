@@ -133,7 +133,7 @@ def show_cocktail(cocktail_id):
 
 @app.route("/cocktails/add", methods=["GET", "POST"])
 def add_cocktail():
-    form = SearchCocktailsForm()
+    form = AddCocktailToAccountForm()
 
     if form.validate_on_submit():
         cocktailname = form.cocktailname.data
