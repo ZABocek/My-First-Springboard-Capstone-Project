@@ -187,12 +187,16 @@ class UserFavoriteIngredients(db.Model):
     user_id = db.Column(
         db.Integer,
         db.ForeignKey('user.id'),
+        primary_key=True
     )
 
     ingredient_id = db.Column(
         db.Integer,
-        db.ForeignKey('ingredients.id')
+        db.ForeignKey('ingredients.id'),
+        primary_key=True
     )
+    state = db.Column(db.String, default='pending')
+
 
 def connect_db(app):
     """Connect this database to provided Flask app. 
