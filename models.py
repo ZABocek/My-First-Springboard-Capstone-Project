@@ -132,7 +132,7 @@ class Cocktail(db.Model):
         nullable=True,
     )
 
-    user1 = db.relationship('User', secondary=cocktails_users, backref='cocktails')
+    user1 = db.relationship('User', backref='cocktails')
     ct_users2 = db.relationship('Cocktails_Users', backref='cocktails')
     ct_ingr2 = db.relationship('Cocktails_Ingredients', backref='cocktails')
 
@@ -170,12 +170,14 @@ class Cocktails_Users(db.Model):
     user_id = db.Column(
         db.Integer,
         db.ForeignKey('user.id'),
+        primary_key=True
     )
-
     cocktail_id = db.Column(
         db.Integer,
         db.ForeignKey('cocktails.id'),
+        primary_key=True
     )
+    state = db.Column(db.String, default='pending')
 
 class UserFavoriteIngredients(db.Model):
     """This table is so users can save their favorite ingredients for making cocktails in their account"""
@@ -185,12 +187,16 @@ class UserFavoriteIngredients(db.Model):
     user_id = db.Column(
         db.Integer,
         db.ForeignKey('user.id'),
+        primary_key=True
     )
 
     ingredient_id = db.Column(
         db.Integer,
-        db.ForeignKey('ingredients.id')
+        db.ForeignKey('ingredients.id'),
+        primary_key=True
     )
+    state = db.Column(db.String, default='pending')
+
 
 def connect_db(app):
     """Connect this database to provided Flask app. 
