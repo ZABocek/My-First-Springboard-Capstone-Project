@@ -1,47 +1,35 @@
 """Forms for cocktail app."""
 
-from wtforms import SelectField
 from flask_wtf import FlaskForm
-from wtforms import StringField, EmailField, IntegerField, SelectField, TextAreaField, BooleanField, PasswordField
-from wtforms.validators import DataRequired, Email, InputRequired, Length, NumberRange, URL, Optional
+from wtforms import StringField, EmailField, IntegerField, BooleanField, PasswordField, TextAreaField
+from wtforms.validators import DataRequired, Email, InputRequired, Length, EqualTo, Optional
 
-class UserAddForm(FlaskForm):
-    """Form for adding users."""
+class RegisterForm(FlaskForm):
+    """Form for registering a user."""
 
-    username = StringField('Username', validators=[DataRequired()])
-    email = StringField('E-mail', validators=[DataRequired(), Email()])
-    password = PasswordField('Password', validators=[Length(min=6)])
-    image_url = StringField('(Optional) Image URL')
-
-
-class UserEditForm(FlaskForm):
-    """Form for editing users."""
-
-    username = StringField('Username', validators=[DataRequired()])
-    email = StringField('E-mail', validators=[DataRequired(), Email()])
-    image_url = StringField('(Optional) Image URL')
-    header_image_url = StringField('(Optional) Header Image URL')
-    bio = TextAreaField('(Optional) Tell us about yourself')
-    password = PasswordField('Password', validators=[Length(min=8)])
+    username = StringField("Username", validators=[InputRequired()])
+    password = PasswordField("Password", validators=[InputRequired(), Length(min=8), EqualTo('confirm', message='Passwords must match') ])
+    confirm  = PasswordField('Repeat Password')
+    email = EmailField("email", validators=[DataRequired(), Email()])
 
 
 class LoginForm(FlaskForm):
-    """Login form."""
+    """Form for registering a user."""
 
-    username = StringField('Username', validators=[DataRequired()])
-    password = PasswordField('Password', validators=[Length(min=8)])
+    username = StringField("Username", validators=[InputRequired()])
+    password = PasswordField("Password", validators=[InputRequired()])
 
 class IngredientForm(FlaskForm):
-    id = IntegerField("id")
-    name = StringField("name")
-    is_alcohol = BooleanField("is_alcohol")
+    id = IntegerField("id", validators=[Optional()])
+    name = TextAreaField("name", validators=[InputRequired()])
+    is_alcohol = BooleanField("Is it alcohol?", validators=[Optional()])
 
 class AddCocktailToAccountForm(FlaskForm):
-    ingredient = StringField("Ingredient Name", required=False)
+    ingredient = TextAreaField("Ingredient Name", validators=[Optional()])
     cocktailname = StringField("Cocktail Name", validators=[InputRequired()])
-    instructions = TextAreaField("Preparation Instructions", required=False)
+    instructions = TextAreaField("Preparation Instructions", validators=[Optional()])
 
 class AddNewCocktailForm(FlaskForm):
-    cocktailname = StringField("Cocktail Name", validators=[InputRequired()])
-    ingredient = StringField("Ingredient Name", validators=[InputRequired()])
-    instructions = TextAreaField("Preparation Instructions", validators=[InputRequired()])
+    cocktailname2 = StringField("New Cocktail Name", validators=[InputRequired()])
+    ingredient2 = TextAreaField("Ingredient Names", validators=[InputRequired()])
+    instructions2 = TextAreaField("Preparation Instructions", validators=[Optional()])
