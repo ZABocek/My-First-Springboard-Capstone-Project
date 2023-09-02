@@ -1,16 +1,19 @@
-from datetime import datetime
-from operator import length_hint
-from turtle import title
 from flask_bcrypt import Bcrypt
 from flask_sqlalchemy import SQLAlchemy
 
 bcrypt = Bcrypt()
 db = SQLAlchemy()
 
+def connect_db(app):
+    """Connect to database."""
+
+    db.app = app
+    db.init_app(app)
+
 class User(db.Model):
     """User in the system."""
 
-    __tablename__ = "user"
+    __tablename__ = "users"
     
     id = db.Column(
         db.Integer,
@@ -43,7 +46,7 @@ class User(db.Model):
         return f"<User #{self.id}: {self.username}, {self.email}>"
     
     @classmethod
-    def signup(cls, username, email, password):
+    def register(cls, username, email, password):
         """Sign up user.
 
         Hashes password and adds user to system.
@@ -51,25 +54,13 @@ class User(db.Model):
 
         hashed_pwd = bcrypt.generate_password_hash(password).decode('UTF-8')
 
-        user = User(
-            username=username,
-            email=email,
-            password=hashed_pwd,
-        )
-
-        db.session.add(user)
-        return user
+        return cls(username=username, email=email, password=hashed_pwd)
     
     @classmethod
     def authenticate(cls, username, password):
-        """Find user with `username` and `password`.
-
-        This is a class method (call it on the class, not an individual user.)
-        It searches for a user whose password hash matches this password
-        and, if it finds such a user, returns that user object.
-
-        If can't find matching user (or if password is wrong), returns False.
-        """
+        """Validate that user exists & password is correct.
+        
+        Return user if valid; else return False."""
 
         user = cls.query.filter_by(username=username).first()
 
@@ -80,10 +71,10 @@ class User(db.Model):
 
         return False
     
-class Ingredients(db.Model):
+class Ingredient(db.Model):
     """Ingredients from the API that the user can select"""
 
-    __tablename__ = "ingredients"
+    __tablename__ = "ingredient"
 
     id = db.Column(
         db.Integer,
@@ -196,11 +187,3 @@ class UserFavoriteIngredients(db.Model):
         primary_key=True
     )
     state = db.Column(db.String, default='pending')
-
-
-def connect_db(app):
-    """Connect this database to provided Flask app. 
-    You should call this in your Flask app."""
-
-    db.app = app
-    db.init_app(app)

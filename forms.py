@@ -1,25 +1,40 @@
 """Forms for cocktail app."""
 
-from wtforms import SelectField
 from flask_wtf import FlaskForm
-from wtforms import validators, StringField, EmailField, IntegerField, SelectField, TextAreaField, BooleanField, PasswordField
-from wtforms.validators import InputRequired, Length, NumberRange, URL, Optional
+from wtforms import StringField, EmailField, IntegerField, BooleanField, PasswordField, TextAreaField
+from wtforms.validators import DataRequired, Email, InputRequired, Length, EqualTo, Optional
 
 class RegisterForm(FlaskForm):
+    """Form for registering a user."""
+
     username = StringField("Username", validators=[InputRequired()])
-    password = PasswordField("Password", validators=[InputRequired(), Length(min=8)])
-    email = EmailField('E-mail', validators=[InputRequired()])
+    password = PasswordField("Password", validators=[InputRequired(), Length(min=8), EqualTo('confirm', message='Passwords must match') ])
+    confirm  = PasswordField('Repeat Password')
+    email = EmailField("email", validators=[DataRequired(), Email()])
+
 
 class LoginForm(FlaskForm):
+    """Form for registering a user."""
+
     username = StringField("Username", validators=[InputRequired()])
-    password = PasswordField("Password", validators=[InputRequired(), Length(min=8)])
+    password = PasswordField("Password", validators=[InputRequired()])
 
-class SearchCocktailsForm(FlaskForm):
-    ingredient = StringField("Ingredient Name", required=False)
-    cocktailname = StringField("Cocktail Name", required=False)
-    instructions = TextAreaField("Preparation Instructions", required=False)
+class IngredientForm(FlaskForm):
+    id = IntegerField("id", validators=[Optional()])
+    name = StringField("name", validators=[InputRequired()])
+    is_alcohol = BooleanField("Is it alcohol?", validators=[Optional()])
 
-class AddNewCocktailForm(FlaskForm):
+class CocktailForm(FlaskForm):
+    ingredient = TextAreaField("Ingredient Name", validators=[Optional()])
     cocktailname = StringField("Cocktail Name", validators=[InputRequired()])
-    ingredient = StringField("Ingredient Name", validators=[InputRequired()])
-    instructions = TextAreaField("Preparation Instructions", validators=[InputRequired()])
+    instructions = TextAreaField("Preparation Instructions", validators=[Optional()])
+
+class NewIngredientForCocktailForm(FlaskForm):
+    """Form for adding an ingredient to a cocktail."""
+
+class SearchIngredientsForm(FlaskForm):
+    """Form for searching music"""
+    name = StringField("Search for song or word on a song", validators=[InputRequired()] )
+
+class DeleteForm(FlaskForm):
+    """Delete form -- this form is intentionally blank."""
