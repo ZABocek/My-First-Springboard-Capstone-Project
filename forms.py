@@ -21,15 +21,20 @@ class LoginForm(FlaskForm):
 
 class IngredientForm(FlaskForm):
     id = IntegerField("id", validators=[Optional()])
-    name = TextAreaField("name", validators=[InputRequired()])
+    name = StringField("name", validators=[InputRequired()])
     is_alcohol = BooleanField("Is it alcohol?", validators=[Optional()])
 
-class AddCocktailToAccountForm(FlaskForm):
+class CocktailForm(FlaskForm):
     ingredient = TextAreaField("Ingredient Name", validators=[Optional()])
     cocktailname = StringField("Cocktail Name", validators=[InputRequired()])
     instructions = TextAreaField("Preparation Instructions", validators=[Optional()])
 
-class AddNewCocktailForm(FlaskForm):
-    cocktailname2 = StringField("New Cocktail Name", validators=[InputRequired()])
-    ingredient2 = TextAreaField("Ingredient Names", validators=[InputRequired()])
-    instructions2 = TextAreaField("Preparation Instructions", validators=[Optional()])
+class NewIngredientForCocktailForm(FlaskForm):
+    """Form for adding an ingredient to a cocktail."""
+
+class SearchIngredientsForm(FlaskForm):
+    """Form for searching music"""
+    name = StringField("Search for song or word on a song", validators=[InputRequired()] )
+
+class DeleteForm(FlaskForm):
+    """Delete form -- this form is intentionally blank."""

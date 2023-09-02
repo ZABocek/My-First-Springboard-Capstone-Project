@@ -1,201 +1,240 @@
-import os
-
-from flask import Flask, render_template, request, flash, redirect, session, g, abort
+from flask import Flask, render_template, redirect, session, flash, request, url_for
 from flask_debugtoolbar import DebugToolbarExtension
-from sqlalchemy.exc import IntegrityError
+from werkzeug.exceptions import Unauthorized
+from models import db, connect_db, Ingredient, Cocktail, Cocktails_Ingredients, User
+from forms import CocktailForm, RegisterForm, LoginForm, DeleteForm, IngredientForm, SearchIngredientsForm
+from thecocktaildb import thecocktaildb
+from helpers import first
+import json
+import os
+from api import CLIENT_ID, CLIENT_SECRET
 
-from forms import LoginForm, AddNewCocktailForm, AddCocktailToAccountForm, IngredientForm, UserAddForm
-from models import db, connect_db, User, Ingredients, Cocktail, Cocktails_Ingredients, Cocktails_Users, UserFavoriteIngredients
+my_thecocktaildb_client = thecocktaildb.TheCocktailDB(CLIENT_ID, CLIENT_SECRET)
 
-CURR_USER_KEY = "curr_user"
 
 app = Flask(__name__)
-
-# Get DB_URI from environ variable (useful for production/testing) or,
-# if not set there, use development local db.
-app.config['SQLALCHEMY_DATABASE_URI'] = (
-    os.environ.get('DATABASE_URL', 'postgresql:///name_your_poison'))
-
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SQLALCHEMY_ECHO'] = False
-app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = True
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', "it's a secret")
-toolbar = DebugToolbarExtension(app)
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgres:///name_your_poison')
+# app.config["SQLALCHEMY_DATABASE_URI"] = "postgres:///new_music"
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["SQLALCHEMY_ECHO"] = True
+app.config["SECRET_KEY"] = os.environ.get('SECRET_KEY', 'abc12345678')
 
 connect_db(app)
-
-##############################################################################
-# User signup/login/logout
-
-@app.before_request
-def add_user_to_g():
-    """If we're logged in, add curr user to Flask global."""
-
-    if CURR_USER_KEY in session:
-        g.user = User.query.get(session[CURR_USER_KEY])
-
-    else:
-        g.user = None
+# db.create_all()
 
 
-def do_login(user):
-    """Log in user."""
-
-    session[CURR_USER_KEY] = user.id
+toolbar = DebugToolbarExtension(app)
+app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = False
 
 
-def do_logout():
-    """Logout user."""
 
-    if CURR_USER_KEY in session:
-        del session[CURR_USER_KEY]
+@app.route("/")
+def homepage():
+    """Show homepage with links to site areas."""
+    return redirect("/register")
 
 
-@app.route('/signup', methods=["GET", "POST"])
-def signup():
-    """Handle user signup.
-
-    Create new user and add to DB. Redirect to home page.
-
-    If form not valid, present form.
-
-    If the there already is a user with that username: flash message
-    and re-present form.
-    """
-    if CURR_USER_KEY in session:
-        del session[CURR_USER_KEY]
-    form = UserAddForm()
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    """Register user: produce form & handle form submission."""
+    if "user_id" in session:
+        return redirect(f"/users/profile/{session['user_id']}")
+    form = RegisterForm()
+    name = form.username.data
+    pwd = form.password.data
+    email = form.email.data
+    existing_user_count = User.query.filter_by(username=name).count()
+    if existing_user_count > 0:
+        flash("User already exists")
+        return redirect('/login')
 
     if form.validate_on_submit():
-        try:
-            user = User.signup(
-                username=form.username.data,
-                password=form.password.data,
-                email=form.email.data,
-                image_url=form.image_url.data or User.image_url.default.arg,
-            )
-            db.session.commit()
-
-        except IntegrityError as e:
-            flash("Username already taken", 'danger')
-            return render_template('users/signup.html', form=form)
-
-        do_login(user)
-
-        return redirect("/")
-
+        user = User.register(name, pwd, email)
+        db.session.add(user)
+        db.session.commit()
+        session["user_id"] = user.id
+        # on successful login, redirect to profile page
+        return redirect(f"/users/profile/{user.id}")
     else:
-        return render_template('users/signup.html', form=form)
+        return render_template("/users/register.html", form=form)
 
 
-@app.route('/login', methods=["GET", "POST"])
+@app.route("/login", methods=["GET", "POST"])
 def login():
-    """Handle user login."""
+    """Produce login form or handle login."""
 
     form = LoginForm()
+    if not form.validate_on_submit():
+        return render_template("users/login.html", form=form)
+    # otherwise
+    name = form.username.data
+    pwd = form.password.data
+    # authenticate will return a user or False
+    user = User.authenticate(name, pwd)
 
-    if form.validate_on_submit():
-        user = User.authenticate(form.username.data,
-                                 form.password.data)
+    if not user:
+        return render_template("users/login.html", form=form)
+    # otherwise
 
-        if user:
-            do_login(user)
-            flash(f"Hello, {user.username}!", "success")
-            return redirect("/")
+    form.username.errors = ["Bad name/password"]
+    my_thecocktaildb_client.perform_auth()
+    session["thecocktaildb_access_token"] = my_thecocktaildb_client.access_token
+    session["thecocktaildb_access_token_expires"] = my_thecocktaildb_client.access_token_expires
+    session["thecocktaildb_access_token_did_expire"] = my_thecocktaildb_client.access_token_did_expire
+    session["user_id"] = user.id  
+    return redirect(f"/users/profile/{user.id}")
 
-        flash("Invalid credentials.", 'danger')
-
-    return render_template('users/login.html', form=form)
 
 
-@app.route('/logout')
+@app.route("/users/profile/<int:id>",  methods=["GET", "POST"])
+def profile(id):
+    """Example hidden page for logged-in users only."""
+
+    # raise 'here'
+    if "user_id" not in session or id != session['user_id']:
+        flash("You must be logged in to view!")
+        return redirect("/login")
+    else:
+        id = session["user_id"]
+        user = User.query.get_or_404(id)
+        form = CocktailForm()
+        user = User.query.get_or_404(id)
+        cocktails = Cocktail.query.filter_by(user_id=id).all()
+        if form.validate_on_submit(): 
+            name = form.name.data
+            new_cocktail = Cocktail(name=name, user_id=session['user_id'])
+            db.session.add(new_cocktail)
+            db.session.commit()
+            cocktails.append(new_cocktail)
+            return redirect(f"/users/profile/{id}")
+        return render_template("users/profile.html", cocktails=cocktails, form=form, user=user)
+
+
+@app.route("/logout")
 def logout():
-    """Handle logout of user."""
-
-    do_logout()
-
-    flash("You have successfully logged out.", 'success')
+    """Logs user out and redirects to homepage."""
+    session.pop("user_id")
     return redirect("/login")
 
-@app.route("/cocktails/<int:cocktail_id>")
+
+@app.route("/cocktails/<int:cocktail_id>", methods=['POST', 'GET'])
 def show_cocktail(cocktail_id):
     """Show detail on specific playlist."""
-
-    # ADD THE NECESSARY CODE HERE FOR THIS ROUTE TO WORK
-    cocktail = Cocktail.query.get_or_404(cocktail_id)
+    cocktail= Cocktail.query.get_or_404(cocktail_id)
+    if "user_id" not in session or  cocktail.user_id != session['user_id']:
+        flash("You must be logged in to view!")
+        return redirect("/login")
+    
     ingredients = Cocktails_Ingredients.query.filter_by(cocktail_id=cocktail_id)
-
-    for b in ingredients:
-        print('testing',b)
-
-
-    return render_template("cocktail/new_cocktail.html", cocktail=cocktail)
-
-@app.route("/cocktails/add", methods=["GET", "POST"])
-def add_cocktail():
-    form = AddCocktailToAccountForm()
-
-    if form.validate_on_submit():
-        cocktailname = form.cocktailname.data
-        instructions = form.instructions.data
-        new_cocktail = Cocktail(cocktailname=cocktailname, instructions=instructions)
-        db.session.add(new_cocktail)
+    form = request.form
+    if request.method == 'POST' and form['remove'] and form['ingredient']:
+        ingredient_id = form['ingredient']
+        ingredient_to_delete = Cocktails_Ingredients.query.get(ingredient_id)
+        db.session.delete(ingredient_to_delete)
+        # raise 'here'
         db.session.commit()
-        return redirect("/profile")
-
-    return render_template("cocktail/new_cocktail.html", form=form)
-
-@app.route("/ingredients")
-def show_all_ingredients():
-    """Show list of ingredients in cocktail."""
-
-    ingredients = Ingredients.query.all()
-    return render_template("ingredient/ingredients.html", ingredients=ingredients)
+    return render_template("cocktail/cocktail.html", cocktail=cocktail, ingredients=ingredients)
 
 
-@app.route("/ingredients/<int:id>")
-def show_ingredient(id):
-   
-    ingredient = Ingredients.query.get_or_404(id)
-    cocktails = ingredient.is_alcohol
+@app.route('/cocktails/<int:cocktail_id>/search', methods=["GET", "POST"])
+def show_form(cocktail_id):
+    """Show form that searches new form, and show results"""
+    cocktail = Cocktail.query.get(cocktail_id)
+    cocktail_id  = cocktail_id
+    form = SearchIngredientsForm()
+    resultsIngredient = []
+    checkbox_form = request.form
 
-
-    return render_template("ingredient/ingredient.html", ingredient=ingredient, cocktails=cocktails)
-
-
-@app.route("/ingredients/add", methods=["GET", "POST"])
-def add_ingredient():
+    list_of_ingredients_thecocktaildb_id_on_cocktail = []
+    for ingredient in cocktail.ingredients:
+      list_of_ingredients_thecocktaildb_id_on_cocktail.append(ingredient.thecocktaildb_id)
+    ingredients_on_cocktail_set = set(list_of_ingredients_thecocktaildb_id_on_cocktail)
     
-    form = IngredientForm()
+
+    if form.validate_on_submit() and checkbox_form['form'] == 'search_ingredients': 
+        ingredient_data = form.ingredient.data
+        api_call_ingredient = my_thecocktaildb_client.search(ingredient_data,'ingredient')   
+
+        # get search results, don't inclue songs that are on playlist already
+        for item in api_call_ingredient['ingredients']['items']:
+          if item['id'] not in ingredients_on_cocktail_set:
+            images = [ image['url'] for image in item['cocktail']['images'] ]
+            urls = item['cocktail']['external_urls']['thecocktaildb']
+            resultsIngredient.append({
+                'name' : item['name'],
+                'thecocktaildb_id': item['id'],
+                'cocktail_name': item['cocktail']['name'], 
+                'cocktail_image': first(images,''),
+                'url': urls
+            })
+
+    # search results checkbox form
+    if 'form' in checkbox_form and checkbox_form['form'] == 'pick_ingredients':
+        list_of_picked_ingredients = checkbox_form.getlist('ingredient')
+        # map each item in list of picked songs
+        jsonvalues = [ json.loads(item) for item in  list_of_picked_ingredients ]
+
+
+        for item in jsonvalues:
+            name = item['name']
+            thecocktaildb_id = item['thecocktaildb_id']
+            cocktail_name = item['cocktail_name']
+            cocktail_image = item['cocktail_image']
+        
+            # print(title)
+            new_ingredients = Ingredient(name=name, thecocktaildb_id=thecocktaildb_id, cocktail_name=cocktail_name, cocktail_image=cocktail_image)
+            db.session.add(new_ingredients)
+            db.session.commit()
+            # add new song to its playlist
+            cocktail_ingredient = Cocktails_Ingredients(ingredient_id=new_ingredients.id, cocktail_id=cocktail_id)
+            db.session.add(cocktail_ingredient)
+            db.session.commit()
+  
+        return redirect(f'/cocktails/{cocktail_id}')
+    def serialize(obj):
+        return json.dumps(obj)
+    return render_template('ingredient/search_new_ingredients.html', cocktail=cocktail, form=form, resultsIngredient=resultsIngredient, serialize=serialize)
+
+@app.route("/cocktails/<int:cocktail_id>/update", methods=["GET", "POST"])
+def update_cocktail(cocktail_id):
+    """Show update form and process it."""
+    cocktail = Cocktail.query.get(cocktail_id)
+    if "user_id" not in session or cocktail.user_id != session['user_id']:
+        flash("You must be logged in to view!")
+        return redirect("/login")
+    form = CocktailForm(obj=cocktail)
+    if form.validate_on_submit():
+        cocktail.name = form.name.data
+        db.session.commit()
+        return redirect(f"/users/profile/{session['user_id']}")
+    return render_template("/cocktail/edit.html", form=form, cocktail=cocktail)
+
+@app.route("/ingredients/<int:ingredient_id>/update", methods=["GET", "POST"])
+def update_ingredient(ingredient_id):
+    """Show update form and process it."""
+    ingredient = Ingredient.query.get(ingredient_id)
+    if "user_id" not in session or ingredient.user_id != session['user_id']:
+        flash("You must be logged in to view!")
+        return redirect("/login")
+    form = IngredientForm(obj=ingredient)
+    if form.validate_on_submit():
+        ingredient.name = form.name.data
+        db.session.commit()
+        return redirect(f"/users/profile/{session['user_id']}")
+    return render_template("/ingredient/edit.html", form=form, ingredient=ingredient)
+
+@app.route("/cocktails/<int:cocktail_id>/delete", methods=["POST"])
+def delete_cocktail(cocktail_id):
+    """Delete playlist."""
+
+    cocktail = Cocktail.query.get(cocktail_id)
+    if "user_id" not in session or cocktail.user_id != session['user_id']:
+        raise Unauthorized()
+
+    form = DeleteForm()
 
     if form.validate_on_submit():
-        id = request.form['id']
-        name = request.form['name']
-        new_ingredient = Ingredients(id=id,name=name)
-        db.session.add(new_ingredient)
-        db.session.commit()
-        return redirect("/ingredients")
-
-    return render_template("ingredient/new_ingredient.html", form=form)
-
-
-
-@app.route("/cocktails/<int:cocktail_id>/add-ingredient", methods=["GET", "POST"])
-def add_ingredient_to_cocktail(cocktail_id):
-    """Add a playlist and redirect to list."""
-    
-    cocktail = Cocktail.query.get_or_404(cocktail_id)
-    form = AddNewCocktailForm()
-
-    curr_on_cocktail = [s.id for s in cocktail.ingredients]
-    form.ingredient.choices = (db.session.query(Ingredients.id, Ingredients.name).filter(Ingredients.id.notin_(curr_on_cocktail)).all())
-
-    if form.validate_on_submit():
-
-        cocktails_users = Cocktails_Users(user_id=form.user.data, cocktail_id=cocktail_id)
-        db.session.add(cocktails_users)
+        db.session.delete(cocktail)
         db.session.commit()
 
-        return redirect(f"/cocktails/{cocktail_id}")
-
-    return render_template("ingredient/add_ingredient_to_cocktail.html", cocktail=cocktail, form=form)
+    return redirect(f"/users/profile/{session['user_id']}")
