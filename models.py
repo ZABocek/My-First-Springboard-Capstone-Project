@@ -38,7 +38,7 @@ class User(db.Model):
         nullable=False,
     )
 
-    cocktails1 = db.relationship('Cocktail', secondary='cocktails_users', backref='user')
+    cocktails1 = db.relationship('Cocktail', backref='user')
     ct_users = db.relationship('Cocktails_Users', backref='user')
     use_fav_ingr = db.relationship('UserFavoriteIngredients', backref='user')
     
