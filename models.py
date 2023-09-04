@@ -89,8 +89,6 @@ class Ingredient(db.Model):
         nullable=True,
     )
 
-    use_fav_ingr2 = db.relationship('UserFavoriteIngredients', backref='ingredients')
-
 class Cocktail(db.Model):
     """Cocktails a user selects for their account or self-made coctails, can also enter instructions for how to make, and have the option of labeling cocktail as sweet or dry"""
 
