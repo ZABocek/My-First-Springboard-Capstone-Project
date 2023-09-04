@@ -38,8 +38,6 @@ class User(db.Model):
         nullable=False,
     )
 
-    
-    ct_users = db.relationship('Cocktails_Users', backref='user')
     use_fav_ingr = db.relationship('UserFavoriteIngredients', backref='user')
     
     def __repr__(self):
