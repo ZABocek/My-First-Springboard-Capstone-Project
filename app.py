@@ -1,15 +1,11 @@
-from flask import Flask, render_template, redirect, session, flash, request, url_for
+from flask import Flask, render_template, redirect, session, flash, request
 from flask_debugtoolbar import DebugToolbarExtension
 from werkzeug.exceptions import Unauthorized
 from models import db, connect_db, Ingredient, Cocktail, Cocktails_Ingredients, User
 from forms import CocktailForm, RegisterForm, LoginForm, DeleteForm, IngredientForm, SearchIngredientsForm
-from thecocktaildb import thecocktaildb
 from helpers import first
 import json
 import os
-from api import CLIENT_ID, CLIENT_SECRET
-
-my_thecocktaildb_client = thecocktaildb.TheCocktailDB(CLIENT_ID, CLIENT_SECRET)
 
 
 app = Flask(__name__)
@@ -77,10 +73,6 @@ def login():
     # otherwise
 
     form.username.errors = ["Bad name/password"]
-    my_thecocktaildb_client.perform_auth()
-    session["thecocktaildb_access_token"] = my_thecocktaildb_client.access_token
-    session["thecocktaildb_access_token_expires"] = my_thecocktaildb_client.access_token_expires
-    session["thecocktaildb_access_token_did_expire"] = my_thecocktaildb_client.access_token_did_expire
     session["user_id"] = user.id  
     return redirect(f"/users/profile/{user.id}")
 
@@ -152,21 +144,10 @@ def show_form(cocktail_id):
     
 
     if form.validate_on_submit() and checkbox_form['form'] == 'search_ingredients': 
-        ingredient_data = form.ingredient.data
-        api_call_ingredient = my_thecocktaildb_client.search(ingredient_data,'ingredient')   
+        ingredient_data = form.ingredient.data   
 
         # get search results, don't inclue songs that are on playlist already
-        for item in api_call_ingredient['ingredients']['items']:
-          if item['id'] not in ingredients_on_cocktail_set:
-            images = [ image['url'] for image in item['cocktail']['images'] ]
-            urls = item['cocktail']['external_urls']['thecocktaildb']
-            resultsIngredient.append({
-                'name' : item['name'],
-                'thecocktaildb_id': item['id'],
-                'cocktail_name': item['cocktail']['name'], 
-                'cocktail_image': first(images,''),
-                'url': urls
-            })
+       
 
     # search results checkbox form
     if 'form' in checkbox_form and checkbox_form['form'] == 'pick_ingredients':

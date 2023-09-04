@@ -2,29 +2,35 @@
 
 {% block content %}
 
-<div class="jumbotron">
-  <h1>{{ cocktail.name }}!</h1>
-  {% if cocktail.id %}
-  <p class="lead">{{ cocktail.id }}</p>
-  {% endif %}
-</div>
+
+  <h4>Cocktail: <b>{{ cocktail.name }}</b></h4>
 
 {% if cocktail.ingredients %}
-<p>
-  <b>Ingredients:</b>
+<div class="ingredient-results">
   {% for ingredient in cocktail.ingredients %}
-  <p>
-  <a href="/ingredients/{{ ingredients.id }}"><span class="badge badge-primary">{{ ingredients.name }}</span></a> <small>{{ingredients.is_alcohol}}</small>
-</p>
+  <div class="ingredient-result">
+    <div>
+      <span class=""><strong>{{ ingredient.id }}</strong><br>
+      </span> by {{ ingredient.names }}
+      <small>{{ingredient.name}}</small><br>
+      <span>{{ingredient.cocktail_name}}</span><br>
+      <img class="cocktail-image" src="{{ingredient.cocktail_image}}" />
+    </div> 
+    <form class="remove-button" method="POST">
+    <input type="hidden" name="remove" value="true" />
+    <input type="hidden" name="ingredient" value="{{ingredient.id}}" />
+    <input type="submit" name='submit' value="Remove from Cocktail" />
+    </form>
+</div>
   {% endfor %}
-</p>
+</div>
 {% else %}
 <p>There are no ingredients yet in this cocktail, add some!</p>
 {% endif %}
 
 <p>
-  <a class="btn btn-primary" href="/cocktails/{{ cocktail.id }}/add-ingredient">
-    Add Ingredient To Cocktail
+  <a class="btn btn-primary" href="/cocktails/{{ cocktail.id }}/search">
+    Add Ingredients to this cocktail
   </a>
 </p>
 

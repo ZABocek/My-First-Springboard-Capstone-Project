@@ -74,7 +74,7 @@ class User(db.Model):
 class Ingredient(db.Model):
     """Ingredients from the API that the user can select"""
 
-    __tablename__ = "ingredients"
+    __tablename__ = "ingredient"
 
     id = db.Column(
         db.Integer,
@@ -187,11 +187,3 @@ class UserFavoriteIngredients(db.Model):
         primary_key=True
     )
     state = db.Column(db.String, default='pending')
-
-
-def connect_db(app):
-    """Connect this database to provided Flask app. 
-    You should call this in your Flask app."""
-
-    db.app = app
-    db.init_app(app)
