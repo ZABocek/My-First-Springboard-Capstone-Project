@@ -4,7 +4,7 @@ from flask_sqlalchemy import SQLAlchemy
 
 bcrypt = Bcrypt()
 app = Flask(__name__)
-db = SQLAlchemy(app)
+db = SQLAlchemy()
 
 def connect_db(app):
     """Connect to database."""
