@@ -1,14 +1,13 @@
 from flask import Flask, render_template, redirect, session, flash, request
+from flask_bcrypt import Bcrypt
+from flask_sqlalchemy import SQLAlchemy
 from flask_debugtoolbar import DebugToolbarExtension
 from werkzeug.exceptions import Unauthorized
-from models import db, connect_db, Ingredient, Cocktail, Cocktails_Ingredients, User
+from models import db, Ingredient, Cocktail, Cocktails_Ingredients, User, app
 from forms import CocktailForm, RegisterForm, LoginForm, DeleteForm, IngredientForm, SearchIngredientsForm
 from helpers import first
-from app import app
 import json
 import os
-
-
 
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql:///name_your_poison')
 # app.config["SQLALCHEMY_DATABASE_URI"] = "postgres:///new_music"
