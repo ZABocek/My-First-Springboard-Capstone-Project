@@ -3,18 +3,15 @@ from flask_bcrypt import Bcrypt
 from flask_sqlalchemy import SQLAlchemy
 
 bcrypt = Bcrypt()
+app = Flask(__name__)
 db = SQLAlchemy()
-
-def connect_db(app):
-    """Connect to database."""
-
-    db.app = app
-    db.init_app(app)
+db.app = app
+db.init_app(app)
 
 class User(db.Model):
     """User in the system."""
 
-    __tablename__ = "users"
+    __tablename__ = "user"
     
     id = db.Column(
         db.Integer,

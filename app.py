@@ -4,18 +4,19 @@ from werkzeug.exceptions import Unauthorized
 from models import db, connect_db, Ingredient, Cocktail, Cocktails_Ingredients, User
 from forms import CocktailForm, RegisterForm, LoginForm, DeleteForm, IngredientForm, SearchIngredientsForm
 from helpers import first
+from app import app
 import json
 import os
 
 
-app = Flask(__name__)
+
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql:///name_your_poison')
 # app.config["SQLALCHEMY_DATABASE_URI"] = "postgres:///new_music"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SQLALCHEMY_ECHO"] = True
 app.config["SECRET_KEY"] = os.environ.get('SECRET_KEY', 'abc12345678')
 
-connect_db(app)
+
 # db.create_all()
 
 
@@ -36,21 +37,21 @@ def register():
     if "user_id" in session:
         return redirect(f"/users/profile/{session['user_id']}")
     form = RegisterForm()
-    name = form.username.data
+    username = form.username.data
     pwd = form.password.data
     email = form.email.data
-    existing_user_count = User.query.filter_by(username=name).count()
+    existing_user_count = User.query.filter_by(username=username).count()
     if existing_user_count > 0:
         flash("User already exists")
         return redirect('/login')
 
     if form.validate_on_submit():
-        user = User.register(name, pwd, email)
-        db.session.add(users)
+        user = User.register(username, pwd, email)
+        db.session.add(user)
         db.session.commit()
-        session["user_id"] = users.id
+        session["user_id"] = user.id
         # on successful login, redirect to profile page
-        return redirect(f"/users/profile/{users.id}")
+        return redirect(f"/users/profile/{user.id}")
     else:
         return render_template("/users/register.html", form=form)
 
@@ -73,8 +74,8 @@ def login():
     # otherwise
 
     form.username.errors = ["Bad name/password"]
-    session["user_id"] = users.id  
-    return redirect(f"/users/profile/{users.id}")
+    session["user_id"] = user.id  
+    return redirect(f"/users/profile/{user.id}")
 
 
 
