@@ -46,11 +46,11 @@ def register():
 
     if form.validate_on_submit():
         user = User.register(name, pwd, email)
-        db.session.add(user)
+        db.session.add(users)
         db.session.commit()
-        session["user_id"] = user.id
+        session["user_id"] = users.id
         # on successful login, redirect to profile page
-        return redirect(f"/users/profile/{user.id}")
+        return redirect(f"/users/profile/{users.id}")
     else:
         return render_template("/users/register.html", form=form)
 
@@ -73,8 +73,8 @@ def login():
     # otherwise
 
     form.username.errors = ["Bad name/password"]
-    session["user_id"] = user.id  
-    return redirect(f"/users/profile/{user.id}")
+    session["user_id"] = users.id  
+    return redirect(f"/users/profile/{users.id}")
 
 
 
