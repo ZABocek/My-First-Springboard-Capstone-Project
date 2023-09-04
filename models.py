@@ -37,8 +37,6 @@ class User(db.Model):
         db.Text,
         nullable=False,
     )
-
-    use_fav_ingr = db.relationship('UserFavoriteIngredients', backref='user')
     
     def __repr__(self):
         return f"<User #{self.id}: {self.username}, {self.email}>"
