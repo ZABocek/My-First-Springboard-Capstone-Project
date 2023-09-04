@@ -1,0 +1,49 @@
+{% extends 'base.html' %} 
+
+{% block content %}
+
+<h1 class="display-5">Hello {{user.username }}</h1>
+
+<h4>This is a private page to add and view your cocktails</h4>
+
+<ul class="profile-list">
+  {% if 'user_id' in session %}
+{% for cocktail in cocktails %}
+  <li>
+     <a href="/cocktails/{{ cocktail.id }}">{{ cocktail.name }}</a>
+     <form>
+      {{form.hidden_tag()}}
+      <button class="btn btn-info"
+      formmethod="GET"
+      formaction="/cocktails/{{ cocktail.id }}/search">
+      Add Ingredients to Cocktail
+    </button>
+      <button class="btn btn-primary"
+      formmethod="GET"
+      formaction="/cocktails/{{ cocktail.id }}/search">
+Search new ingredients for this cocktail
+</button>
+
+      <button class="btn btn-primary"
+              formmethod="GET"
+              formaction="/cocktails/{{ cocktail.id }}/update">
+        Edit Cocktail Name
+      </button>
+      <button class="btn btn-danger"
+              formmethod="POST"
+              formaction="/cocktails/{{ cocktail.id }}/delete">
+        Delete
+      </button>
+    </form>
+  </li>
+{% endfor %}
+{% endif %}
+</ul>
+
+<h4>Add a new cocktail</h4>
+<form method="POST">
+  {% include "partials/_form.html" %}
+  <button class="btn btn-primary" type="submit">Add</button>
+</form>
+
+{% endblock %}
