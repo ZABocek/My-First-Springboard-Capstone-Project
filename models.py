@@ -116,7 +116,6 @@ class Cocktail(db.Model):
         nullable=True,
     )
 
-    user1 = db.relationship('User', backref='cocktails')
     ct_users2 = db.relationship('Cocktails_Users', backref='cocktails')
     ct_ingr2 = db.relationship('Cocktails_Ingredients', backref='cocktails')
 
