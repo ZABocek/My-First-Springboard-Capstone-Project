@@ -89,7 +89,6 @@ class Ingredient(db.Model):
         nullable=True,
     )
 
-    ct_ingr = db.relationship('Cocktails_Ingredients', backref='ingredients')
     use_fav_ingr2 = db.relationship('UserFavoriteIngredients', backref='ingredients')
 
 class Cocktail(db.Model):
