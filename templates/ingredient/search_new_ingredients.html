@@ -1,0 +1,32 @@
+{% extends 'base.html' %} 
+
+{% block content %}
+
+<h1>Add ingredients to cocktail <a href="/cocktails/{{cocktail.id}}">{{cocktail.name}}</a></h1>
+
+<form method="POST">
+  {% include "partials/_form.html" %}
+  <button class="btn btn-primary" type="submit">Search</button>
+  <input type="hidden" name="form" value="search_ingredients">
+</form>
+
+
+{% if resultsIngredient %}
+<form class="container" method="POST">
+  <input type="submit" value="Add checked ingredients" class="add-ingredients">
+  <div class="container ingredient-results">
+  {% for result in resultsIngredient %}
+  <div class="ingredient-result">
+    <input type="checkbox" id="{{ result['thecocktaildb_id'] }}" name="ingredient" value="{{ serialize(result) }} ">
+    <label for="{{ result['thecocktaildb_id'] }}">
+      <a href="{{result['url']}}" target="_blank"> {{ result['name']}}</a></label>
+    <img src="{{ result['cocktail_image'] }}" width=200 />
+  </div>
+  {%endfor %}
+</div>
+<input type="hidden" name="form" value="pick_ingredients">
+</form>
+
+{%endif %}
+
+{% endblock %}
