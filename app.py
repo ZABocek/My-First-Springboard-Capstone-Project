@@ -9,7 +9,7 @@ from helpers import first
 import json
 import os
 app = Flask(__name__)
-connect_db(app)
+
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql:///name_your_poison')
 # app.config["SQLALCHEMY_DATABASE_URI"] = "postgres:///new_music"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
@@ -23,7 +23,7 @@ app.config["SECRET_KEY"] = os.environ.get('SECRET_KEY', 'abc12345678')
 toolbar = DebugToolbarExtension(app)
 app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = False
 
-
+connect_db(app)
 
 @app.route("/")
 def homepage():
