@@ -138,7 +138,7 @@ class Cocktails_Ingredients(db.Model):
 
     ingredient_id = db.Column(
         db.Integer,
-        db.ForeignKey('ingredients.id'),
+        db.ForeignKey('ingredient.id'),
     )
 
     quantity = db.Column(
@@ -176,7 +176,7 @@ class UserFavoriteIngredients(db.Model):
 
     ingredient_id = db.Column(
         db.Integer,
-        db.ForeignKey('ingredients.id'),
+        db.ForeignKey('ingredient.id'),
         primary_key=True
     )
     state = db.Column(db.String, default='pending')
