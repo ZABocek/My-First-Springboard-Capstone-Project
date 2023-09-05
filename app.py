@@ -22,8 +22,11 @@ app.config["SECRET_KEY"] = os.environ.get('SECRET_KEY', 'abc12345678')
 
 toolbar = DebugToolbarExtension(app)
 app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = False
+
 connect_db(app)
 
+with app.app_context():
+    db.create_all()
 
 @app.route("/")
 def homepage():
