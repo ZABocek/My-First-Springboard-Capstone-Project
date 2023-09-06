@@ -8,8 +8,8 @@
 
 <ul class="profile-list">
   {% if 'user_id' in session %}
-{% for cocktail in cocktails %}
-  <li>
+    {% for cocktail in cocktails %}
+    <li>
      <a href="/cocktail/{{ cocktail.id }}">{{ cocktail.name }}</a>
      <form>
       {{form.hidden_tag()}}
@@ -17,12 +17,12 @@
       formmethod="GET"
       formaction="/cocktail/{{ cocktail.id }}/search">
       Add Ingredients to Cocktail
-    </button>
+      </button>
       <button class="btn btn-primary"
       formmethod="GET"
       formaction="/cocktail/{{ cocktail.id }}/search">
-Search new ingredients for this cocktail
-</button>
+    Search new ingredients for this cocktail
+      </button>
 
       <button class="btn btn-primary"
               formmethod="GET"
