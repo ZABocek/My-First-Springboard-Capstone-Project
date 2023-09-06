@@ -10,28 +10,28 @@
   {% if 'user_id' in session %}
 {% for cocktail in cocktails %}
   <li>
-     <a href="/cocktails/{{ cocktail.id }}">{{ cocktail.name }}</a>
+     <a href="/cocktail/{{ cocktail.id }}">{{ cocktail.name }}</a>
      <form>
       {{form.hidden_tag()}}
       <button class="btn btn-info"
       formmethod="GET"
-      formaction="/cocktails/{{ cocktail.id }}/search">
+      formaction="/cocktail/{{ cocktail.id }}/search">
       Add Ingredients to Cocktail
     </button>
       <button class="btn btn-primary"
       formmethod="GET"
-      formaction="/cocktails/{{ cocktail.id }}/search">
+      formaction="/cocktail/{{ cocktail.id }}/search">
 Search new ingredients for this cocktail
 </button>
 
       <button class="btn btn-primary"
               formmethod="GET"
-              formaction="/cocktails/{{ cocktail.id }}/update">
+              formaction="/cocktail/{{ cocktail.id }}/update">
         Edit Cocktail Name
       </button>
       <button class="btn btn-danger"
               formmethod="POST"
-              formaction="/cocktails/{{ cocktail.id }}/delete">
+              formaction="/cocktail/{{ cocktail.id }}/delete">
         Delete
       </button>
     </form>
