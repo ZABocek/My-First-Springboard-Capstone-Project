@@ -3,17 +3,17 @@
 {% block content %}
 
 
-  <h4>Cocktail: <b>{{ cocktail.name }}</b></h4>
+  <h4>Cocktail: <b>{{ cocktails.name }}</b></h4>
 
-{% if cocktail.ingredients %}
+{% if cocktails_ingredients.ingredient_id %}
 <div class="ingredient-results">
-  {% for ingredient in cocktail.ingredients %}
+  {% for cocktails_ingredients.ingredient_id in cocktails_ingredients %}
   <div class="ingredient-result">
     <div>
-      <span class=""><strong>{{ ingredient.id }}</strong><br>
-      </span> by {{ ingredient.names }}
+      <span class=""><strong>{{ ingredient.name }}</strong><br>
+      </span> by {{ ingredient.id }}
       <small>{{ingredient.name}}</small><br>
-      <span>{{ingredient.cocktail_name}}</span><br>
+      <span>{{cocktails.name}}</span><br>
       <img class="cocktail-image" src="{{ingredient.cocktail_image}}" />
     </div> 
     <form class="remove-button" method="POST">
