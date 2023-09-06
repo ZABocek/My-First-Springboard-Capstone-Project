@@ -1,4 +1,3 @@
-
 from flask_bcrypt import Bcrypt
 from flask_sqlalchemy import SQLAlchemy
 
@@ -14,7 +13,7 @@ def connect_db(app):
 class User(db.Model):
     """User in the system."""
 
-    __tablename__ = "user"
+    __tablename__ = "users"
     
     id = db.Column(
         db.Integer,
@@ -38,6 +37,10 @@ class User(db.Model):
         db.Text,
         nullable=False,
     )
+
+    cocktails1 = db.relationship('Cocktails', secondary='cocktails_users', backref='user')
+    ct_users = db.relationship('Cocktails_Users', backref='user')
+    use_fav_ingr = db.relationship('UserFavoriteIngredients', backref='user')
     
     def __repr__(self):
         return f"<User #{self.id}: {self.username}, {self.email}>"
@@ -90,6 +93,9 @@ class Ingredient(db.Model):
         nullable=True,
     )
 
+    ct_ingr = db.relationship('Cocktails_Ingredients', backref='ingredients')
+    use_fav_ingr2 = db.relationship('UserFavoriteIngredients', backref='ingredients')
+
 class Cocktail(db.Model):
     """Cocktails a user selects for their account or self-made coctails, can also enter instructions for how to make, and have the option of labeling cocktail as sweet or dry"""
 
@@ -117,6 +123,7 @@ class Cocktail(db.Model):
         nullable=True,
     )
 
+    user1 = db.relationship('User', backref='cocktails')
     ct_users2 = db.relationship('Cocktails_Users', backref='cocktails')
     ct_ingr2 = db.relationship('Cocktails_Ingredients', backref='cocktails')
 
@@ -138,7 +145,7 @@ class Cocktails_Ingredients(db.Model):
 
     ingredient_id = db.Column(
         db.Integer,
-        db.ForeignKey('ingredient.id'),
+        db.ForeignKey('ingredients.id'),
     )
 
     quantity = db.Column(
@@ -176,7 +183,7 @@ class UserFavoriteIngredients(db.Model):
 
     ingredient_id = db.Column(
         db.Integer,
-        db.ForeignKey('ingredient.id'),
+        db.ForeignKey('ingredients.id'),
         primary_key=True
     )
     state = db.Column(db.String, default='pending')
