@@ -10,7 +10,7 @@
   {% if 'user_id' in session %}
     {% for cocktail in cocktails %}
     <li>
-     <a href="/cocktail/{{ cocktails.id }}">{{ cocktail.name }}</a>
+     <a href="/cocktail/{{ cocktails.id }}">{{ cocktails.name }}</a>
      <form>
       {{form.hidden_tag()}}
       <button class="btn btn-info"
