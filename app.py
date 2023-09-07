@@ -11,7 +11,7 @@ import os
 app = Flask(__name__)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql:///name_your_poison')
-# app.config["SQLALCHEMY_DATABASE_URI"] = "postgres:///new_music"
+#app.config["SQLALCHEMY_DATABASE_URI"] = "postgres:///new_music"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SQLALCHEMY_ECHO"] = True
 app.config["SECRET_KEY"] = os.environ.get('SECRET_KEY', 'abc12345678')
@@ -26,6 +26,7 @@ app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = False
 connect_db(app)
 
 with app.app_context():
+    db.drop_all()
     db.create_all()
 
 @app.route("/")
@@ -94,7 +95,7 @@ def profile(id):
         id = session["user_id"]
         user = User.query.get_or_404(id)
         form = CocktailForm()
-        user = User.query.get_or_404(id)
+        ingredient = form.ingredient.data
         cocktails = Cocktail.query.filter_by(id=id).all()
         if form.validate_on_submit(): 
             name = form.name.data
