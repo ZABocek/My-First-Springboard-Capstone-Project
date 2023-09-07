@@ -95,12 +95,12 @@ def profile(id):
         id = session["user_id"]
         user = User.query.get_or_404(id)
         form = CocktailForm()
-        ingredient = form.ingredient.data
         cocktailname = form.cocktailname.data
         instructions = form.instructions.data
+        ingredient = form.ingredient.data
         cocktails = Cocktail.query.filter_by(id=id).all()
         if form.validate_on_submit(): 
-            new_cocktail = Cocktail(ingredient=ingredient, cocktailname=cocktailname, instructions=instructions, id=session['user_id'])
+            new_cocktail = Cocktail.profile(cocktailname, instructions, ingredient)
             db.session.add(new_cocktail)
             db.session.commit()
             cocktails.append(new_cocktail)
