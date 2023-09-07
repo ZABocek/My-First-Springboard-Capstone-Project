@@ -6,12 +6,11 @@ from wtforms.validators import DataRequired, Email, InputRequired, Length, Equal
 
 class RegisterForm(FlaskForm):
     """Form for registering a user."""
-    id = IntegerField("User ID")
+    email = EmailField("email", validators=[DataRequired(), Email()])
     username = StringField("Username", validators=[InputRequired()])
     password = PasswordField("Password", validators=[InputRequired(), Length(min=8), EqualTo('confirm', message='Passwords must match') ])
     confirm  = PasswordField('Repeat Password')
-    email = EmailField("email", validators=[DataRequired(), Email()])
-
+   
 
 class LoginForm(FlaskForm):
     """Form for registering a user."""

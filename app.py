@@ -50,7 +50,7 @@ def register():
         return redirect('/login')
 
     if form.validate_on_submit():
-        user = User.register(username, pwd, email)
+        user = User.register(username, email, pwd)
         db.session.add(user)
         db.session.commit()
         session["user_id"] = user.id
