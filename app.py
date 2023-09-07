@@ -95,7 +95,7 @@ def profile(id):
         id = session["user_id"]
         user = User.query.get_or_404(id)
         form = CocktailForm()
-        user = User.query.get_or_404(id)
+        ingredient = form.ingredient.data
         cocktails = Cocktail.query.filter_by(id=id).all()
         if form.validate_on_submit(): 
             name = form.name.data
