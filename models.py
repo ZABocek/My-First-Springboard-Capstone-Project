@@ -112,9 +112,9 @@ class Cocktail(db.Model):
         nullable=True,
     )
 
-    sweet = db.Column(
-        db.Boolean,
-        nullable=True,
+    ingredients = db.Column(
+        db.Text,
+        nullable=True
     )
 
     ct_users2 = db.relationship('Cocktails_Users', backref='cocktails')

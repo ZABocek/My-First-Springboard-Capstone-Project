@@ -42,8 +42,9 @@ def register():
         return redirect(f"/users/profile/{session['user_id']}")
     form = RegisterForm()
     username = form.username.data
-    pwd = form.password.data
     email = form.email.data
+    pwd = form.password.data
+    
     existing_user_count = User.query.filter_by(username=username).count()
     if existing_user_count > 0:
         flash("User already exists")
@@ -95,11 +96,12 @@ def profile(id):
         id = session["user_id"]
         user = User.query.get_or_404(id)
         form = CocktailForm()
+        cocktailname = form.cocktailname.data
+        instructions = form.instructions.data
         ingredient = form.ingredient.data
         cocktails = Cocktail.query.filter_by(id=id).all()
         if form.validate_on_submit(): 
-            name = form.name.data
-            new_cocktail = Cocktail(name=name, id=session['user_id'])
+            new_cocktail = Cocktail.profile(cocktailname, instructions, ingredient)
             db.session.add(new_cocktail)
             db.session.commit()
             cocktails.append(new_cocktail)
