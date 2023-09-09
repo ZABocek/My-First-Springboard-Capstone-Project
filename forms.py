@@ -19,12 +19,10 @@ class LoginForm(FlaskForm):
     password = PasswordField("Password", validators=[InputRequired()])
 
 class IngredientForm(FlaskForm):
-    id = IntegerField("id", validators=[Optional()])
     name = StringField("name", validators=[InputRequired()])
     is_alcohol = BooleanField("Is it alcohol?", validators=[Optional()])
 
 class CocktailForm(FlaskForm):
-    id = IntegerField("Cocktail ID")
     ingredient = TextAreaField("Ingredient Name", validators=[Optional()])
     cocktailname = StringField("Cocktail Name", validators=[InputRequired()])
     instructions = TextAreaField("Preparation Instructions", validators=[Optional()])

@@ -1,4 +1,4 @@
-from flask import Flask, render_template, redirect, session, flash, request
+from flask import Flask, render_template, redirect, session, flash, request, g
 
 
 from flask_debugtoolbar import DebugToolbarExtension
@@ -82,32 +82,22 @@ def login():
     session["user_id"] = user.id  
     return redirect(f"/users/profile/{user.id}")
 
+@app.route('/users/profile', methods=["GET", "POST"])
+def cocktails_add_new():
+    """Add a message:
 
-
-@app.route("/users/profile/<int:id>",  methods=["GET", "POST"])
-def profile(id):
-    """Example hidden page for logged-in users only."""
-
-    # raise 'here'
-    if "user_id" not in session or id != session['user_id']:
-        flash("You must be logged in to view!")
-        return redirect("/login")
-    else:
-        id = session["user_id"]
-        user = User.query.get_or_404(id)
+    Show form if GET. If valid, update message and redirect to user page.
+    """
+    if 'user_id' in session:
         form = CocktailForm()
+        ingredient = form.ingredient.data
         cocktailname = form.cocktailname.data
         instructions = form.instructions.data
-        ingredient = form.ingredient.data
-        cocktails = Cocktail.query.filter_by(id=id).all()
-        if form.validate_on_submit(): 
-            new_cocktail = Cocktail.profile(cocktailname, instructions, ingredient)
+        if form.validate_on_submit():
+            new_cocktail = Cocktail(ingredient=ingredient, cocktailname=cocktailname, instructions=instructions)
             db.session.add(new_cocktail)
             db.session.commit()
-            cocktails.append(new_cocktail)
-            return redirect(f"/users/profile/{id}")
-        return render_template("users/profile.html", cocktails=cocktails, form=form, user=user)
-
+            return render_template('/cocktail/cocktail.html', form=form)
 
 @app.route("/logout")
 def logout():
@@ -132,7 +122,7 @@ def show_cocktail(cocktail_id):
         db.session.delete(ingredient_to_delete)
         # raise 'here'
         db.session.commit()
-    return render_template("cocktail/cocktail.html", cocktail=cocktail, ingredients=ingredients)
+    return render_template("/cocktail/cocktail.html", cocktail=cocktail, ingredients=ingredients)
 
 
 @app.route('/cocktails/<int:cocktail_id>/search', methods=["GET", "POST"])
