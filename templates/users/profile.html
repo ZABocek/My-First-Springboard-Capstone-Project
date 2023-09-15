@@ -8,6 +8,7 @@
 
 <ul class="profile-list">
   {% if 'user_id' in session %}
+<<<<<<< HEAD
     {% for cocktail in cocktails %}
     <li>
      <a href="/cocktail/{{ cocktails.id }}">{{ cocktails.name }}</a>
@@ -16,10 +17,21 @@
       <button class="btn btn-info"
       formmethod="GET"
       formaction="/cocktail/{{ cocktails.id }}/search">
+=======
+  {% for cocktail in cocktails %}
+  <li>
+    <a href="/cocktail/{{ cocktails.id }}">{{ cocktails.name }}</a>
+    <form>
+      {{form.hidden_tag()}}
+      <button class="btn btn-info"
+      formmethod="GET"
+      formaction="/cocktail/{{ cocktails.ingredients }}">
+>>>>>>> f5a1523976fe65d7f4a8d08ee3f457bac830193e
       Add Ingredients to Cocktail
       </button>
       <button class="btn btn-primary"
       formmethod="GET"
+<<<<<<< HEAD
       formaction="/cocktail/{{ cocktails.id }}/search">
     Search new ingredients for this cocktail
       </button>
@@ -38,6 +50,20 @@
   </li>
 {% endfor %}
 {% endif %}
+=======
+      formaction="/cocktail/{{ cocktails.name }}">
+      Edit name of new cocktail
+      </button>
+      <button class="btn btn-primary"
+      formmethod="GET"
+      formaction="/cocktail/{{ cocktails.instructions }}">
+      Provide instructions for making the cocktail
+      </button>
+    </form>
+  </li>
+  {% endfor %}
+  {% endif %}
+>>>>>>> f5a1523976fe65d7f4a8d08ee3f457bac830193e
 </ul>
 
 <h4>Add a new cocktail</h4>

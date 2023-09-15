@@ -45,4 +45,8 @@ traitlets==4.3.2
 urllib3==1.25.10
 wcwidth==0.1.7
 Werkzeug==1.0.1
+<<<<<<< HEAD
 WTForms==2.3.3
+=======
+WTForms==2.3.3
+>>>>>>> f5a1523976fe65d7f4a8d08ee3f457bac830193e
