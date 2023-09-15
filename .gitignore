@@ -1,13 +1,6 @@
-<<<<<<< HEAD
-/__pycache__/
-/venv/
-/api.py
-/scratch.py
-/.vscode/
-=======
 __pycache__/
 venv/
 api.py
 scratch.py
 .vscode/
->>>>>>> f5a1523976fe65d7f4a8d08ee3f457bac830193e
+
