@@ -41,9 +41,10 @@ def register():
     if "user_id" in session:
         return redirect(f"/users/profile/{session['user_id']}")
     form = RegisterForm()
+    email = form.email.data
     username = form.username.data
     pwd = form.password.data
-    email = form.email.data
+
     existing_user_count = User.query.filter_by(username=username).count()
     if existing_user_count > 0:
         flash("User already exists")

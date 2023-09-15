@@ -1,5 +1,5 @@
-__pycache__/
-venv/
-api.py
-scratch.py
-.vscode/
+/__pycache__/
+/venv/
+/api.py
+/scratch.py
+/.vscode/
