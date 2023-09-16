@@ -1,4 +1,3 @@
-
 from flask import Flask, render_template, redirect, session, flash, request
 
 
@@ -42,10 +41,9 @@ def register():
     if "user_id" in session:
         return redirect(f"/users/profile/{session['user_id']}")
     form = RegisterForm()
-    email = form.email.data
     username = form.username.data
     pwd = form.password.data
-
+    email = form.email.data
     existing_user_count = User.query.filter_by(username=username).count()
     if existing_user_count > 0:
         flash("User already exists")
@@ -102,10 +100,9 @@ def profile(id):
         ingredient = form.ingredient.data
         cocktails = Cocktail.query.filter_by(id=id).all()
         if form.validate_on_submit(): 
-            new_cocktail = Cocktail.profile(cocktailname, instructions, ingredient)
+            new_cocktail = Cocktail.profile(Cocktail, cocktailname, instructions, ingredient)
             db.session.add(new_cocktail)
             db.session.commit()
-            cocktails.append(new_cocktail)
             return redirect(f"/users/profile/{id}")
         return render_template("users/profile.html", cocktails=cocktails, form=form, user=user)
 
@@ -226,3 +223,4 @@ def delete_cocktail(cocktail_id):
         db.session.delete(cocktail)
         db.session.commit()
 
+    return redirect(f"/users/profile/{session['user_id']}")
