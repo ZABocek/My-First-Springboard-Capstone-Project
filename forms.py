@@ -1,4 +1,3 @@
-
 """Forms for cocktail app."""
 
 from flask_wtf import FlaskForm
@@ -20,6 +19,7 @@ class LoginForm(FlaskForm):
     password = PasswordField("Password", validators=[InputRequired()])
 
 class IngredientForm(FlaskForm):
+    id = IntegerField("id", validators=[Optional()])
     name = StringField("name", validators=[InputRequired()])
     is_alcohol = BooleanField("Is it alcohol?", validators=[Optional()])
 

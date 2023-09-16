@@ -1,3 +1,4 @@
+
 from flask_bcrypt import Bcrypt
 from flask_sqlalchemy import SQLAlchemy
 
@@ -118,6 +119,10 @@ class Cocktail(db.Model):
 
     ct_users2 = db.relationship('Cocktails_Users', backref='cocktails')
     ct_ingr2 = db.relationship('Cocktails_Ingredients', backref='cocktails')
+    
+    def profile(cls, name, instructions, ingredients):
+        return cls(ingredients=ingredients, name=name, instructions=instructions)
+        
 
 class Cocktails_Ingredients(db.Model):
     """binds cocktails table and ingredients table together and allows user to select quantity"""
