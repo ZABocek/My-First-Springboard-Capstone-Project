@@ -96,13 +96,14 @@ def profile(id):
         user = User.query.get_or_404(id)
         form = CocktailForm()
         cocktailname = form.cocktailname.data
-        instructions = form.instructions.data
         ingredient = form.ingredient.data
+        instructions = form.instructions.data
         cocktails = Cocktail.query.filter_by(id=id).all()
         if form.validate_on_submit(): 
-            new_cocktail = Cocktail.profile(Cocktail, cocktailname, instructions, ingredient)
+            new_cocktail = Cocktail.profile(Cocktail, cocktailname, ingredient, instructions)
             db.session.add(new_cocktail)
             db.session.commit()
+            new_cocktail.cursor1(cocktailname, ingredient, instructions)
             return redirect(f"/users/profile/{id}")
         return render_template("users/profile.html", cocktails=cocktails, form=form, user=user)
 

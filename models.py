@@ -1,6 +1,6 @@
 
 from flask_bcrypt import Bcrypt
-from flask_sqlalchemy import SQLAlchemy
+from flask_sqlalchemy import SQLAlchemy, connector
 
 bcrypt = Bcrypt()
 db = SQLAlchemy()
@@ -107,23 +107,35 @@ class Cocktail(db.Model):
         unique=True,
     )
 
-    instructions = db.Column(
-        db.Text,
-        nullable=True,
-    )
-
     ingredients = db.Column(
         db.Text,
         nullable=True
     )
 
+    instructions = db.Column(
+        db.Text,
+        nullable=True,
+    )
+
     ct_users2 = db.relationship('Cocktails_Users', backref='cocktails')
     ct_ingr2 = db.relationship('Cocktails_Ingredients', backref='cocktails')
     
-    def profile(cls, name, instructions, ingredients):
-        return cls(ingredients=ingredients, name=name, instructions=instructions)
-        
-
+    def profile(cls, name, ingredients, instructions):
+        return cls(name=name, ingredients=ingredients, instructions=instructions)
+    
+    def cursor1(name, ingredients, instructions):
+        conn = connector.connect(
+            name=name,
+            ingredients=ingredients,
+            instructions=instructions
+        )
+        mycursor = conn.cursor()
+        mycursor.execute({{Cocktail}})
+        for row in mycursor:
+            print(row)
+        mycursor.close()
+        conn.close()
+    
 class Cocktails_Ingredients(db.Model):
     """binds cocktails table and ingredients table together and allows user to select quantity"""
 

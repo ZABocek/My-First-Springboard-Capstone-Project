@@ -24,8 +24,8 @@ class IngredientForm(FlaskForm):
     is_alcohol = BooleanField("Is it alcohol?", validators=[Optional()])
 
 class CocktailForm(FlaskForm):
-    ingredient = TextAreaField("Ingredient Name", validators=[Optional()])
     cocktailname = StringField("Cocktail Name", validators=[InputRequired()])
+    ingredient = TextAreaField("Ingredient Name", validators=[Optional()])
     instructions = TextAreaField("Preparation Instructions", validators=[Optional()])
 
 class NewIngredientForCocktailForm(FlaskForm):
