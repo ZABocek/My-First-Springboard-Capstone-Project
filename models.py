@@ -1,10 +1,10 @@
 
 from flask_bcrypt import Bcrypt
-from flask_sqlalchemy import SQLAlchemy, connector
-
+from flask_sqlalchemy import SQLAlchemy
+import logging
 bcrypt = Bcrypt()
 db = SQLAlchemy()
-
+logging.basicConfig(level=logging.DEBUG)
 def connect_db(app):
     """Connect to database."""
 
@@ -44,15 +44,16 @@ class User(db.Model):
     
     @classmethod
     def register(cls, username, email, password):
-        """Sign up user.
+        """Sign up user. Hashes password and adds user to system."""
+        try:
+            hashed_pwd = bcrypt.generate_password_hash(password).decode('UTF-8')
+            user = cls(username=username, email=email, password=hashed_pwd)
+            logging.debug(f"User registered: {user}")
+            return user
+        except Exception as e:
+            logging.error(f"Error registering user: {e}")
+            raise
 
-        Hashes password and adds user to system.
-        """
-
-        hashed_pwd = bcrypt.generate_password_hash(password).decode('UTF-8')
-
-        return cls(username=username, email=email, password=hashed_pwd)
-    
     @classmethod
     def authenticate(cls, username, password):
         """Validate that user exists & password is correct.
@@ -68,6 +69,7 @@ class User(db.Model):
 
         return False
     
+   
 class Ingredient(db.Model):
     """Ingredients from the API that the user can select"""
 
@@ -85,9 +87,10 @@ class Ingredient(db.Model):
         unique=True,
     )
 
-    is_alcohol = db.Column(
-        db.Boolean,
-        nullable=True,
+    quantity = db.Column(
+        db.Text,
+        nullable=False,
+        unique=False,
     )
 
 class Cocktail(db.Model):
@@ -107,34 +110,12 @@ class Cocktail(db.Model):
         unique=True,
     )
 
-    ingredients = db.Column(
-        db.Text,
-        nullable=True
-    )
-
     instructions = db.Column(
         db.Text,
         nullable=True,
     )
 
     ct_users2 = db.relationship('Cocktails_Users', backref='cocktails')
-    ct_ingr2 = db.relationship('Cocktails_Ingredients', backref='cocktails')
-    
-    def profile(cls, name, ingredients, instructions):
-        return cls(name=name, ingredients=ingredients, instructions=instructions)
-    
-    def cursor1(name, ingredients, instructions):
-        conn = connector.connect(
-            name=name,
-            ingredients=ingredients,
-            instructions=instructions
-        )
-        mycursor = conn.cursor()
-        mycursor.execute({{Cocktail}})
-        for row in mycursor:
-            print(row)
-        mycursor.close()
-        conn.close()
     
 class Cocktails_Ingredients(db.Model):
     """binds cocktails table and ingredients table together and allows user to select quantity"""
@@ -179,6 +160,7 @@ class Cocktails_Users(db.Model):
     )
     state = db.Column(db.String, default='pending')
 
+    
 class UserFavoriteIngredients(db.Model):
     """This table is so users can save their favorite ingredients for making cocktails in their account"""
     
