@@ -1,5 +1,5 @@
 from flask import Flask, abort, render_template, redirect, session, flash, url_for
-from config import SECRET_KEY
+
 import requests
 import logging
 from flask_debugtoolbar import DebugToolbarExtension
