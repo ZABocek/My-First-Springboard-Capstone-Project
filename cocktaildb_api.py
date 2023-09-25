@@ -1,7 +1,7 @@
 import requests
 from api_keys import KEY  # Import the API key from secrets.py
 
-BASE_URL = "https://www.thecocktaildb.com/api/json/v2"
+BASE_URL = "https://www.thecocktaildb.com/api/json/v1"
 
 def get_cocktail_by_name(cocktail_name):
     url = f"{BASE_URL}/{KEY}/search.php?s={cocktail_name}"  # Include the API key in the URL
