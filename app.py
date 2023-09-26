@@ -1,10 +1,9 @@
-from flask import Flask, abort, render_template, redirect, session, flash, url_for
-
-import requests
-import logging
+from flask import Flask, render_template, redirect, session, flash, url_for
+from flask_login import login_required, current_user
+import request
 from flask_debugtoolbar import DebugToolbarExtension
-from models import db, connect_db, Ingredient, Cocktail, Cocktails_Ingredients, User
-from forms import CocktailForm, RegisterForm, LoginForm
+from models import db, connect_db, User
+from forms import RegisterForm, LoginForm
 import os
 app = Flask(__name__)
 
@@ -59,29 +58,25 @@ def register():
     
     return render_template("/users/register.html", form=form)
 
-@app.route("/users/profile/<int:id>",  methods=["GET", "POST"])
+@app.route("/users/profile/<int:id>", methods=["GET", "POST"])
 def profile(id):
-    """Example hidden page for logged-in users only."""
-
-    # raise 'here'
+    """Display and update user's profile."""
+    # Ensure the user is logged in and the id in the URL matches the logged-in user id
     if "user_id" not in session or id != session['user_id']:
         flash("You must be logged in to view!")
         return redirect("/login")
-    else:
-        id = session["user_id"]
-        user = User.query.get_or_404(id)
-        form = CocktailForm()
-        name = form.name.data
-        ingredient = form.ingredients.data
-        instructions = form.instructions.data
-        cocktails = Cocktail.query.filter_by(id=id).all()
-        if form.validate_on_submit(): 
-            new_cocktail = Cocktail.profile(Cocktail, cocktailname, ingredient, instructions)
-            db.session.add(new_cocktail)
-            db.session.commit()
-            new_cocktail.cursor1(name, ingredient, instructions)
-            return redirect(f"/users/profile/{id}")
-        return render_template("users/profile.html", cocktails=cocktails, form=form, user=user)
+    
+    user = User.query.get_or_404(id)
+
+    if request.method == 'POST':
+        preference = request.form.get('preference')
+        # Save this preference to the database
+        user.preference = preference  
+        db.session.commit()
+        flash("Preference Updated Successfully!")
+        return redirect(url_for('profile', id=id))
+    
+    return render_template("users/profile.html", user=user)
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -111,39 +106,3 @@ def logout():
     session.pop("user_id")
     return redirect("/login")
 
-@app.route('/add_cocktail', methods=['GET', 'POST'])
-def add_cocktail():
-    form = CocktailForm()
-
-    # Populate ingredient choices from the database
-    ingredient_choices = [(str(ingredient.id), ingredient.name) for ingredient in Ingredient.query.all()]
-    for ingredient_field in form.ingredients:
-        ingredient_field.ingredient.choices = ingredient_choices
-
-    if form.validate_on_submit():
-        cocktail_name = form.name.data
-
-        # Fetch cocktail details from CocktailDB API
-        cocktail_data = cocktaildb_api.get_cocktail_by_name(cocktail_name)
-        
-        # If cocktail_data is not None, then you can use it for additional information or validation.
-        # For example, verifying if the instructions match, or auto-filling the ingredients if they are empty.
-        if cocktail_data:
-            # ... (Additional logic, if needed)
-            pass
-        
-        cocktail = Cocktail(name=cocktail_name, instructions=form.instructions.data)
-        db.session.add(cocktail)
-        db.session.flush()  # This is to get the ID of the newly created cocktail record
-        
-        # Add ingredients and their quantities to Cocktails_Ingredients table
-        for ingredient_data in form.ingredients.data:
-            cocktail_ingredient = Cocktails_Ingredients(cocktail_id=cocktail.id, ingredient_id=ingredient_data['Ingredient'], quantity=ingredient_data['Measure'])
-            db.session.add(cocktail_ingredient)
-        
-        db.session.commit()
-
-        flash('Cocktail added successfully!', 'success')
-        return redirect(url_for('index'))
-    
-    return render_template('add_cocktail.html', form=form)
