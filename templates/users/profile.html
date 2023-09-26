@@ -1,49 +1,19 @@
-{% extends 'base.html' %} 
-
+{% extends "base.html" %} 
 {% block content %}
 
-<h1 class="display-5">Hello {{user.username }}</h1>
-
-<h4>This is a private page to add and view your cocktails</h4>
-
-<ul class="profile-list">
-  {% if 'user_id' in session %}
-    {% for cocktail in cocktails %}
-    <li>
-     <a href="/cocktail/{{ cocktails.id }}">{{ cocktails.name }}</a>
-     <form>
-      {{form.hidden_tag()}}
-      <button class="btn btn-info"
-      formmethod="GET"
-      formaction="/cocktail/{{ cocktails.id }}/search">
-      Add Ingredients to Cocktail
-      </button>
-      <button class="btn btn-primary"
-      formmethod="GET"
-      formaction="/cocktail/{{ cocktails.id }}/search">
-    Search new ingredients for this cocktail
-      </button>
-
-      <button class="btn btn-primary"
-              formmethod="GET"
-              formaction="/cocktail/{{ cocktails.id }}/update">
-        Edit Cocktail Name
-      </button>
-      <button class="btn btn-danger"
-              formmethod="POST"
-              formaction="/cocktail/{{ cocktails.id }}/delete">
-        Delete
-      </button>
-    </form>
-  </li>
-{% endfor %}
-{% endif %}
-</ul>
-
-<h4>Add a new cocktail</h4>
-<form method="POST">
-  {% include "partials/_form.html" %}
-  <button class="btn btn-primary" type="submit">Add</button>
-</form>
+<div class="profile">
+  <h2>Profile</h2>
+  <p>Username: {{ user.username }}</p>
+  <p>Email: {{ user.email }}</p>
+  <form method="POST">
+      <label for="preference">Drink Preference: </label>
+      <select name="preference" id="preference">
+          <option value="alcoholic" {% if user.preference == 'alcoholic' %}selected{% endif %}>Alcoholic</option>
+          <option value="non-alcoholic" {% if user.preference == 'non-alcoholic' %}selected{% endif %}>Non-Alcoholic</option>
+      </select>
+      <button type="submit">Save Preference</button>
+  </form>
+  <p>Preference: {{ user.preference }}</p>
+</div>
 
 {% endblock %}
