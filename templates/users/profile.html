@@ -1,19 +1,30 @@
 {% extends "base.html" %} 
+
 {% block content %}
 
 <div class="profile">
   <h2>Profile</h2>
   <p>Username: {{ user.username }}</p>
   <p>Email: {{ user.email }}</p>
+  
   <form method="POST">
-      <label for="preference">Drink Preference: </label>
-      <select name="preference" id="preference">
-          <option value="alcoholic" {% if user.preference == 'alcoholic' %}selected{% endif %}>Alcoholic</option>
-          <option value="non-alcoholic" {% if user.preference == 'non-alcoholic' %}selected{% endif %}>Non-Alcoholic</option>
-      </select>
-      <button type="submit">Save Preference</button>
+    {{ preference_form.csrf_token }}
+    {{ preference_form.preference.label }} {{ preference_form.preference() }}
+    <button type="submit" name="submit_button" value="Save Preference">Save Preference</button>
   </form>
-  <p>Preference: {{ user.preference }}</p>
+  <p>Preference: {{ user.preference or 'Not Set' }}</p>
+  
+  <form method="POST">
+    {{ ingredient_form.csrf_token }}
+    {{ ingredient_form.ingredient.label }} {{ ingredient_form.ingredient() }}
+    <button type="submit" name="submit_button" value="Add Ingredient">Add Ingredient</button>
+  </form>
+  <p>Favorite Ingredients:</p>
+  <ul>
+    {% for ingredient in user_favorite_ingredients %}
+      <li>{{ ingredient.name }}</li>
+    {% endfor %}
+  </ul>
 </div>
 
 {% endblock %}

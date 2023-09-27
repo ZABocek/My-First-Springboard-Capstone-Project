@@ -39,6 +39,12 @@ class User(db.Model):
         nullable=False,
     )
     
+    preference = db.Column(
+        db.String,
+        nullable=True,
+        default='alcoholic'
+    )
+    
     def __repr__(self):
         return f"<User #{self.id}: {self.username}, {self.email}>"
     
@@ -69,6 +75,19 @@ class User(db.Model):
 
         return False
     
+    def add_preference(self, preference):
+        """Add preference to the user"""
+        try:
+            self.preference = preference
+            db.session.commit()
+            logging.debug(f"Preference updated: {self}")
+        except Exception as e:
+            logging.error(f"Error updating preference: {e}")
+            db.session.rollback()
+            raise
+        
+    user_favorite_ingredients = db.relationship('UserFavoriteIngredients', backref='user')
+
    
 class Ingredient(db.Model):
     """Ingredients from the API that the user can select"""
@@ -87,11 +106,7 @@ class Ingredient(db.Model):
         unique=True,
     )
 
-    quantity = db.Column(
-        db.Text,
-        nullable=False,
-        unique=False,
-    )
+    user_favorite_ingredients = db.relationship('UserFavoriteIngredients', backref='ingredient')
 
 class Cocktail(db.Model):
     """Cocktails a user selects for their account or self-made coctails, can also enter instructions for how to make, and have the option of labeling cocktail as sweet or dry"""
@@ -158,7 +173,6 @@ class Cocktails_Users(db.Model):
         db.ForeignKey('cocktails.id'),
         primary_key=True
     )
-    state = db.Column(db.String, default='pending')
 
     
 class UserFavoriteIngredients(db.Model):
@@ -177,4 +191,3 @@ class UserFavoriteIngredients(db.Model):
         db.ForeignKey('ingredient.id'),
         primary_key=True
     )
-    state = db.Column(db.String, default='pending')

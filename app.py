@@ -1,9 +1,10 @@
-from flask import Flask, render_template, redirect, session, flash, url_for
+from flask import Flask, render_template, redirect, session, flash, url_for, request
 from flask_login import login_required, current_user
-import request
+from config import SECRET_KEY
 from flask_debugtoolbar import DebugToolbarExtension
-from models import db, connect_db, User
-from forms import RegisterForm, LoginForm
+from models import db, connect_db, User, UserFavoriteIngredients, Ingredient
+from forms import RegisterForm, LoginForm, PreferenceForm, UserFavoriteIngredientForm
+from cocktaildb_api import list_ingredients
 import os
 app = Flask(__name__)
 
@@ -58,25 +59,52 @@ def register():
     
     return render_template("/users/register.html", form=form)
 
-@app.route("/users/profile/<int:id>", methods=["GET", "POST"])
-def profile(id):
-    """Display and update user's profile."""
-    # Ensure the user is logged in and the id in the URL matches the logged-in user id
-    if "user_id" not in session or id != session['user_id']:
-        flash("You must be logged in to view!")
-        return redirect("/login")
-    
-    user = User.query.get_or_404(id)
+@app.route('/users/profile/<int:user_id>', methods=['GET', 'POST'])
+def profile(user_id):
+    user = User.query.get_or_404(user_id)
+    preference_form = PreferenceForm()
+    ingredient_form = UserFavoriteIngredientForm()
+
+    ingredients_from_api = list_ingredients()
+    if ingredients_from_api:
+        ingredient_form.ingredient.choices = [(i['idIngredient'], i['strIngredient']) for i in ingredients_from_api.get('drinks', []) if 'idIngredient' in i and 'strIngredient' in i]
+    else:
+        app.logger.error("Failed to retrieve ingredients from API")
 
     if request.method == 'POST':
-        preference = request.form.get('preference')
-        # Save this preference to the database
-        user.preference = preference  
-        db.session.commit()
-        flash("Preference Updated Successfully!")
-        return redirect(url_for('profile', id=id))
-    
-    return render_template("users/profile.html", user=user)
+        submit_button = request.form.get('submit_button')
+        
+        if submit_button == 'Save Preference' and preference_form.validate():
+            preference = preference_form.preference.data
+            try:
+                user.add_preference(preference)
+                db.session.commit()
+                flash('Preference updated successfully!', 'success')
+            except Exception as e:
+                app.logger.error(f"Failed to update preference: {e}")
+                db.session.rollback()
+                flash('Failed to update preference!', 'danger')
+
+        elif submit_button == 'Add Ingredient' and ingredient_form.validate():
+            ingredient_id = ingredient_form.ingredient.data
+            # Check if already added, if not then add the ingredient
+            existing_ingredient = UserFavoriteIngredients.query.filter_by(user_id=user.id, ingredient_id=ingredient_id).first()
+            if existing_ingredient:
+                flash('Ingredient already added!', 'warning')
+            else:
+                try:
+                    favorite_ingredient = UserFavoriteIngredients(user_id=user.id, ingredient_id=ingredient_id)
+                    db.session.add(favorite_ingredient)
+                    db.session.commit()
+                    flash('Ingredient added successfully!', 'success')
+                except Exception as e:
+                    app.logger.error(f"Failed to add ingredient: {e}")
+                    db.session.rollback()
+                    flash('Failed to add ingredient!', 'danger')
+
+    user_favorite_ingredients = [i.ingredient for i in user.user_favorite_ingredients]
+    return render_template('/users/profile.html', user=user, preference_form=preference_form, ingredient_form=ingredient_form, user_favorite_ingredients=user_favorite_ingredients)
+
 
 @app.route("/login", methods=["GET", "POST"])
 def login():

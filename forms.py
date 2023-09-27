@@ -16,6 +16,13 @@ class LoginForm(FlaskForm):
 
     username = StringField("Username", validators=[InputRequired()])
     password = PasswordField("Password", validators=[InputRequired()])
+    
+class PreferenceForm(FlaskForm):
+    preference = SelectField('Preference', choices=[('alcoholic', 'Alcoholic'), ('non-alcoholic', 'Non-Alcoholic')], validators=[InputRequired()])
+
+class UserFavoriteIngredientForm(FlaskForm):
+    ingredient = SelectField('Ingredient', choices=[])  # You will populate choices dynamically from your ingredients table
+    add_ingredient = SubmitField('Add Ingredient')
 
 class IngredientForm(FlaskForm):
     ingredient = SelectField('Ingredient', choices=[])
