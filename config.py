@@ -1,1 +1,1 @@
-CrosbyStillsNashYoung
+SECRET_KEY = "CrosbyStillsNashYoung"
