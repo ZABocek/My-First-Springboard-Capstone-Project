@@ -86,7 +86,7 @@ class User(db.Model):
             db.session.rollback()
             raise
         
-    user_favorite_ingredients = db.relationship('UserFavoriteIngredients', backref='user')
+    user_favorite_ingredients = db.relationship('UserFavoriteIngredients', backref='user', cascade="all, delete-orphan")
 
    
 class Ingredient(db.Model):
@@ -106,7 +106,7 @@ class Ingredient(db.Model):
         unique=True,
     )
 
-    user_favorite_ingredients = db.relationship('UserFavoriteIngredients', backref='ingredient')
+    user_favorite_ingredients = db.relationship('UserFavoriteIngredients', backref='ingredient', cascade="all, delete-orphan")
 
 class Cocktail(db.Model):
     """Cocktails a user selects for their account or self-made coctails, can also enter instructions for how to make, and have the option of labeling cocktail as sweet or dry"""

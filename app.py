@@ -67,7 +67,7 @@ def profile(user_id):
 
     ingredients_from_api = list_ingredients()
     if ingredients_from_api:
-        ingredient_form.ingredient.choices = [(i['idIngredient'], i['strIngredient']) for i in ingredients_from_api.get('drinks', []) if 'idIngredient' in i and 'strIngredient' in i]
+        ingredient_form.ingredient.choices = [(i['strIngredient1'], i['strIngredient1']) for i in ingredients_from_api.get('drinks', [])]
     else:
         app.logger.error("Failed to retrieve ingredients from API")
 
@@ -86,14 +86,24 @@ def profile(user_id):
                 flash('Failed to update preference!', 'danger')
 
         elif submit_button == 'Add Ingredient' and ingredient_form.validate():
-            ingredient_id = ingredient_form.ingredient.data
-            # Check if already added, if not then add the ingredient
-            existing_ingredient = UserFavoriteIngredients.query.filter_by(user_id=user.id, ingredient_id=ingredient_id).first()
+            ingredient_name = ingredient_form.ingredient.data
+
+            # Check if ingredient exists in ingredient table
+            ingredient = Ingredient.query.filter_by(name=ingredient_name).first()
+
+            # If it doesn't exist, add it
+            if not ingredient:
+                ingredient = Ingredient(name=ingredient_name)
+                db.session.add(ingredient)
+                db.session.commit()
+
+            # Check if already added to user's favorites, if not then add the ingredient
+            existing_ingredient = UserFavoriteIngredients.query.filter_by(user_id=user.id, ingredient_id=ingredient.id).first()
             if existing_ingredient:
                 flash('Ingredient already added!', 'warning')
             else:
                 try:
-                    favorite_ingredient = UserFavoriteIngredients(user_id=user.id, ingredient_id=ingredient_id)
+                    favorite_ingredient = UserFavoriteIngredients(user_id=user.id, ingredient_id=ingredient.id)
                     db.session.add(favorite_ingredient)
                     db.session.commit()
                     flash('Ingredient added successfully!', 'success')
@@ -104,7 +114,6 @@ def profile(user_id):
 
     user_favorite_ingredients = [i.ingredient for i in user.user_favorite_ingredients]
     return render_template('/users/profile.html', user=user, preference_form=preference_form, ingredient_form=ingredient_form, user_favorite_ingredients=user_favorite_ingredients)
-
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
