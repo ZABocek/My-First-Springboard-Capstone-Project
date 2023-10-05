@@ -1,6 +1,7 @@
 """Forms for cocktail app."""
 
 from flask_wtf import FlaskForm
+from flask_wtf.file import FileField, FileAllowed
 from wtforms import StringField, PasswordField, SelectField, FieldList,TextAreaField, FormField, SubmitField
 from wtforms.validators import DataRequired, Email, InputRequired, Length, EqualTo
 
@@ -26,11 +27,16 @@ class UserFavoriteIngredientForm(FlaskForm):
 
 class IngredientForm(FlaskForm):
     ingredient = SelectField('Ingredient', choices=[])
-    quantity = StringField('Quantity', validators=[DataRequired()])
+    measure = StringField('Measure', validators=[DataRequired()])  # Changed from quantity to measure
 
 class CocktailForm(FlaskForm):
+    pre_existing_cocktail = SelectField('Pre-existing Cocktail', coerce=int)  # This is for cocktails from the API
     name = StringField('Cocktail Name', validators=[DataRequired()])
     ingredients = FieldList(FormField(IngredientForm), min_entries=1, max_entries=10)
     instructions = TextAreaField('Instructions')
     submit = SubmitField('Add Cocktail')
+    image = FileField('Image', validators=[FileAllowed(['jpg', 'png', 'jpeg'], 'Images only!')])
 
+class ListCocktailsForm(FlaskForm):
+    cocktail = SelectField('Select Cocktail', coerce=int)
+    submit = SubmitField('View Details')

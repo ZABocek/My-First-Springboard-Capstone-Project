@@ -17,7 +17,9 @@ def list_ingredients():
     response = requests.get(url)
     
     if response.status_code == 200:
-        return response.json()
+        ingredients = response.json().get('drinks', [])
+        sorted_ingredients = sorted(ingredients, key=lambda x: x['strIngredient1'])
+        return {"drinks": sorted_ingredients}
     else:
         return None
 
@@ -29,3 +31,25 @@ def lookup_cocktail(cocktail_id):
         return response.json()
     else:
         return None
+    
+def get_cocktails_list():
+    ingredients_list = list_ingredients()
+    if not ingredients_list:
+        return []
+    cocktails = set()
+    for ingredient in ingredients_list.get('drinks', []):
+        ingredient_name = ingredient['strIngredient1']
+        response = requests.get(BASE_URL + f'/filter.php?i={ingredient_name}')
+        if response.status_code == 200:
+            drinks = response.json().get('drinks', [])
+            for drink in drinks:
+                cocktails.add((drink['idDrink'], drink['strDrink']))
+    # Sort the list of cocktails by their names before returning
+    return sorted(list(cocktails), key=lambda x: x[1])
+
+def get_cocktail_detail(cocktail_id):
+    url = f"{BASE_URL}/lookup.php?i={cocktail_id}"  # Fixed URL
+    response = requests.get(url)
+    if response.status_code == 200:
+        return response.json().get('drinks', [])[0]  # Assuming that details will always be present for a valid id.
+    return None

@@ -2,6 +2,11 @@
 
 {% block content %}
 
+<div class="navbar">
+  <a href="{{ url_for('list_cocktails') }}">Cocktails List</a>
+  <a href="{{ url_for('add_cocktails') }}">Add Cocktails</a>
+</div>
+
 <div class="profile">
   <h2>Profile</h2>
   <p>Username: {{ user.username }}</p>
