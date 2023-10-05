@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block content %}
+<form method="POST" enctype="multipart/form-data">
+    {{ form.hidden_tag() }}
+
+    <!-- Section for Adding Pre-existing Cocktails -->
+    <div class="form-group">
+        {{ form.pre_existing_cocktail.label }} {{ form.pre_existing_cocktail() }}
+    </div>
+
+    <hr>
+    
+    <!-- Section for Adding New Cocktails -->
+    <div id="new_cocktail_fields">
+        <div class="form-group">
+            {{ form.name.label }} {{ form.name() }}
+        </div>
+        
+        <div class="form-group">
+            {{ form.image.label }} {{ form.image() }} <!-- Image Upload -->
+        </div>
+        
+        <div id="ingredients">
+            {% for ingredient_form in form.ingredients %}
+                <div class="ingredient">
+                    <div class="form-group">
+                        {{ ingredient_form.ingredient.label }} {{ ingredient_form.ingredient() }}
+                    </div>
+                    <div class="form-group">
+                        {{ ingredient_form.measure.label }} {{ ingredient_form.measure() }}
+                    </div>                
+                </div>
+            {% endfor %}
+        </div>
+        
+        <div class="form-group">
+            {{ form.instructions.label }} {{ form.instructions() }}
+        </div>
+        
+        <div class="form-group">
+            <button type="submit" name="add_new" class="btn btn-primary">Add New Cocktail</button>
+        </div>
+    </div>
+</form>
+<button type="submit" name="add_pre_existing" class="btn btn-primary">Add Pre-Existing Cocktail</button>
+
+<hr>
+
+<div id="added_cocktails">
+    <h2>Added Cocktails</h2>
+    {% for cocktail in added_cocktails %}
+        <div class="cocktail">
+            <h3>{{ cocktail.strDrink }}</h3>
+            <img src="{{ cocktail.strDrinkThumb or '/static/no_image_available.png' }}" alt="{{ cocktail.strDrink }}">
+            <p><strong>Ingredients:</strong></p>
+            <ul>
+                {% for ingredient, measure in cocktail.ingredients %}
+                    <li>{{ ingredient }} - {{ measure or '' }}</li>
+                {% endfor %}
+            </ul>
+            <p><strong>Instructions:</strong> {{ cocktail.strInstructions }}</p>
+        </div>
+    {% endfor %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const newCocktailFields = document.getElementById("new_cocktail_fields");
+    const preExistingFields = document.querySelector(".form-group"); // assuming this is your first form-group
+    
+    // Function to toggle visibility
+    function toggleVisibility(element, state) {
+        element.style.display = state ? "block" : "none";
+    }
+    
+    document.addEventListener('DOMContentLoaded', (event) => {
+        // Initially hide newCocktailFields
+        toggleVisibility(newCocktailFields, false);
+    });
+
+    document.querySelector("[name='add_pre_existing']").addEventListener("click", function (e) {
+         // Prevent form submission
+        toggleVisibility(preExistingFields, true);
+        toggleVisibility(newCocktailFields, false);
+    });
+
+    document.querySelector("[name='add_new']").addEventListener("click", function (e) {
+        // Prevent form submission
+        toggleVisibility(preExistingFields, false);
+        toggleVisibility(newCocktailFields, true);
+    });
+    document.getElementById("add_pre_existing").addEventListener("click", async function (e) {
+        e.preventDefault(); // Prevent form submission
+        const selectedCocktailId = document.querySelector("[name='pre_existing_cocktail']").value;
+
+        try {
+            // Fetch the cocktail details from the server
+            const response = await fetch(`/cocktail/${selectedCocktailId}`);
+            if(!response.ok) throw new Error('Failed to fetch cocktail details');
+
+            const data = await response.json();
+            const cocktail = data.drinks[0];
+            const addedCocktailsDiv = document.getElementById("added_cocktails");
+
+            // Create and inject the new cocktail div into the addedCocktailsDiv
+            const newCocktailDiv = document.createElement('div');
+            newCocktailDiv.className = 'cocktail';
+
+            // You can update this HTML string to match the exact design in cocktail_details.html
+            newCocktailDiv.innerHTML = `
+                <h3>${cocktail.strDrink}</h3>
+                <img src="${cocktail.strDrinkThumb || '/static/no_image_available.png'}" alt="${cocktail.strDrink}">
+                <p><strong>Ingredients:</strong></p>
+                <ul>
+                    ${
+                        Object.keys(cocktail).filter(key => key.startsWith('strIngredient'))
+                        .map(key => {
+                            const ingredient = cocktail[key];
+                            const measure = cocktail[key.replace('Ingredient', 'Measure')] || '';
+                            return ingredient ? `<li>${ingredient} - ${measure}</li>` : '';
+                        }).join('')
+                    }
+                </ul>
+                <p><strong>Instructions:</strong> ${cocktail.strInstructions}</p>
+            `;
+
+            addedCocktailsDiv.appendChild(newCocktailDiv);
+        } catch (error) {
+            console.error('Error adding pre-existing cocktail', error);
+            alert('Failed to add pre-existing cocktail. Please try again later.');
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <div class="list_cocktails">
+    <h2>Cocktails List</h2>
+    <form method="POST">
+      {{ form.csrf_token }}
+      {{ form.cocktail.label }} {{ form.cocktail() }}
+      {{ form.submit() }}
+    </form>
+  </div>
+{% endblock %}
