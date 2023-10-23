@@ -1,4 +1,3 @@
-
 from flask_bcrypt import Bcrypt
 from flask_sqlalchemy import SQLAlchemy
 import logging
@@ -87,7 +86,7 @@ class User(db.Model):
             raise
         
     user_favorite_ingredients = db.relationship('UserFavoriteIngredients', backref='user', cascade="all, delete-orphan")
-
+    cocktails_relation = db.relationship('Cocktails_Users', backref='user')
    
 class Ingredient(db.Model):
     """Ingredients from the API that the user can select"""
@@ -129,9 +128,19 @@ class Cocktail(db.Model):
         db.Text,
         nullable=True,
     )
-
-    ct_users2 = db.relationship('Cocktails_Users', backref='cocktails')
     
+    strDrinkThumb = db.Column(
+        db.String, 
+        nullable=True
+    )
+
+    image_url = db.Column(
+        db.String,
+        nullable=True
+    )
+    ct_users2 = db.relationship('Cocktails_Users', backref='cocktails')
+    ingredients_relation = db.relationship('Cocktails_Ingredients', backref='cocktail')
+
 class Cocktails_Ingredients(db.Model):
     """binds cocktails table and ingredients table together and allows user to select quantity"""
 
@@ -157,6 +166,8 @@ class Cocktails_Ingredients(db.Model):
         db.Text,
         nullable=False,
     )
+    
+    ingredient = db.relationship('Ingredient', backref='cocktails_ingredients')
 
 class Cocktails_Users(db.Model):
     """This table is set up so that users can create their own cocktails if they want to."""
@@ -173,7 +184,6 @@ class Cocktails_Users(db.Model):
         db.ForeignKey('cocktails.id'),
         primary_key=True
     )
-
     
 class UserFavoriteIngredients(db.Model):
     """This table is so users can save their favorite ingredients for making cocktails in their account"""

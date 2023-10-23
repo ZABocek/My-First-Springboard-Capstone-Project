@@ -1,30 +1,28 @@
-from flask import Flask, render_template, redirect, send_from_directory, session, flash, url_for, request
-from werkzeug.datastructures import CombinedMultiDict
-from werkzeug.utils import secure_filename
-
-from flask_login import login_required, current_user
+from flask import current_app as app, Flask, render_template, redirect, send_from_directory, send_file, session, flash, url_for, request
+from concurrent.futures import ThreadPoolExecutor
 from config import SECRET_KEY
+import requests
+import asyncio
+from werkzeug.utils import secure_filename
+from werkzeug.datastructures import FileStorage
 from flask_debugtoolbar import DebugToolbarExtension
-from models import db, connect_db, User, UserFavoriteIngredients, Ingredient, Cocktail, Cocktails_Ingredients
-from forms import RegisterForm, LoginForm, PreferenceForm, UserFavoriteIngredientForm, ListCocktailsForm, CocktailForm
-from cocktaildb_api import search_ingredient, list_ingredients, lookup_cocktail, get_cocktails_list, get_cocktail_detail
+from models import db, connect_db, User, UserFavoriteIngredients, Ingredient, Cocktails_Users, Cocktail, Cocktails_Ingredients
+from forms import RegisterForm, OriginalCocktailForm, IngredientForm, EditCocktailForm, LoginForm, PreferenceForm, UserFavoriteIngredientForm, ListCocktailsForm
+from cocktaildb_api import list_ingredients, get_cocktail_detail, get_combined_cocktails_list, lookup_cocktail, get_random_cocktail, fetch_and_prepare_cocktails
 import os
 app = Flask(__name__)
-UPLOAD_FOLDER = 'uploads'  # define a folder to save uploaded images
+UPLOADED_PHOTOS_DEST = 'static/uploads'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
+# Set the folder where you want to store the uploaded images
+app.config['UPLOADED_PHOTOS_DEST'] = UPLOADED_PHOTOS_DEST
+
+# Configure the application with the upload sets
 
 app.config['SECRET_KEY'] = SECRET_KEY
-app.config['DEBUG'] = True
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
+app.config['DEBUG'] = False
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql:///name_your_poison')
-#app.config["SQLALCHEMY_DATABASE_URI"] = "postgres:///new_music"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SQLALCHEMY_ECHO"] = True
-
-
-# db.create_all()
-
 
 toolbar = DebugToolbarExtension(app)
 app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = False
@@ -34,17 +32,21 @@ connect_db(app)
 with app.app_context():
     db.drop_all()
     db.create_all()
-
+executor = ThreadPoolExecutor()
+BASE_URL = "https://www.thecocktaildb.com/api/json/v1/1"
 @app.route("/")
 def homepage():
     """Show homepage with links to site areas."""
-    return redirect("/register")
+    if "user_id" in session:
+        return render_template("index.html")
+    else:
+        return redirect("/register")
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
     """Register user: produce form & handle form submission."""
     if "user_id" in session:
-        return redirect(f"/users/profile/{session['user_id']}")
+        return redirect(url_for('homepage'))
     form = RegisterForm()
 
     if form.validate_on_submit():
@@ -60,8 +62,7 @@ def register():
         db.session.add(user)
         db.session.commit()
         session["user_id"] = user.id
-        # on successful login, redirect to profile page
-        return redirect(f"/users/profile/{user.id}")
+        return redirect(url_for('homepage'))
     
     return render_template("/users/register.html", form=form)
 
@@ -71,7 +72,7 @@ def profile(user_id):
     preference_form = PreferenceForm()
     ingredient_form = UserFavoriteIngredientForm()
 
-    ingredients_from_api = list_ingredients()
+    ingredients_from_api = asyncio.run(list_ingredients())
     if ingredients_from_api:
         ingredient_form.ingredient.choices = [(i['strIngredient1'], i['strIngredient1']) for i in ingredients_from_api.get('drinks', [])]
     else:
@@ -125,11 +126,19 @@ def profile(user_id):
 def list_cocktails():
     form = ListCocktailsForm()
     try:
-        cocktails = get_cocktails_list()
+        # Create a new event loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        # Run the coroutine within the loop
+        cocktails = loop.run_until_complete(get_combined_cocktails_list())
+        
+        loop.close()  # Close the loop
+
         if not cocktails:
             flash('No cocktails found!', 'warning')
         else:
-            form.cocktail.choices = cocktails
+            form.cocktail.choices = [(cocktail[0], cocktail[1]) for cocktail in cocktails]  # Assumes the function returns a list of tuples (id, cocktail_name)
         if form.validate_on_submit():
             return redirect(url_for('cocktail_details', cocktail_id=form.cocktail.data))
     except Exception as e:
@@ -153,74 +162,277 @@ def cocktail_details(cocktail_id):
     user_id = session.get("user_id")  # Get user_id from the session
     return render_template('cocktail_details.html', cocktail=cocktail, user_id=user_id)  # Pass user_id to the template
 
-@app.route('/add_cocktails', methods=['GET', 'POST'])
-def add_cocktails():
-    form = CocktailForm(CombinedMultiDict((request.files, request.form)))
+@app.route('/add_api_cocktails', methods=['GET', 'POST'])
+async def add_api_cocktails():
+    if 'user_id' not in session:
+        flash('You must be logged in to add cocktails!', 'danger')
+        return redirect(url_for('login'))
 
-    cocktails_from_api = get_cocktails_list()
-    if cocktails_from_api:  
-        form.pre_existing_cocktail.choices = cocktails_from_api
+    form = ListCocktailsForm()
+    user_id = session.get('user_id')
 
-    ingredients_from_api = list_ingredients()
-    if ingredients_from_api:
-        for ingredient_form in form.ingredients:
-            ingredient_form.ingredient.choices = [(i['strIngredient1'], i['strIngredient1']) for i in ingredients_from_api.get('drinks', [])]
+    # Get the list of cocktails from the API
+    cocktails = await get_combined_cocktails_list()
+    if cocktails:
+        form.cocktail.choices = [(c[0], c[1]) for c in cocktails]
+    else:
+        flash('Failed to retrieve cocktails. Please try again.', 'danger')
+        return render_template('add_api_cocktails.html', form=form)
 
-    added_cocktails = session.get("added_cocktails", [])
     if form.validate_on_submit():
-        if 'add_pre_existing' in request.form:
-            cocktail_id = form.pre_existing_cocktail.data
-            cocktail = get_cocktail_detail(cocktail_id)
-            if cocktail:
-                added_cocktails.append(cocktail)
-                session["added_cocktails"] = added_cocktails  # store in the session
-            else:
-                flash('Failed to get cocktail details', 'danger')
-        elif 'add_new' in request.form:
-          # else, a new cocktail is being added
-            cocktail_name = form.name.data
-            cocktail = {"strDrink": cocktail_name, "strInstructions": form.instructions.data, "strDrinkThumb": None}
-            ingredients = [{"ingredient": i.ingredient.data, "measure": i.measure.data} for i in form.ingredients]
-            cocktail["ingredients"] = ingredients
+        selected_cocktail_id = form.cocktail.data
+        cocktail_detail = get_cocktail_detail(selected_cocktail_id)
 
-            # save uploaded image if any
-            image = form.image.data
-            if image and image.filename:
-                filename = secure_filename(image.filename)
-                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                image.save(filepath)
-                cocktail["strDrinkThumb"] = url_for('uploaded_file', filename=filename)
+        if cocktail_detail:
+            process_and_store_new_cocktail(cocktail_detail, user_id)
+            flash(f"Added {cocktail_detail['strDrink']} to your cocktails!", 'success')
+            return redirect(url_for('my_cocktails'))
 
-            added_cocktails.append(cocktail)
-        session["added_cocktails"] = added_cocktails
-    
-    return render_template('add_cocktails.html', form=form, added_cocktails=added_cocktails)
-# Route to serve uploaded images
-@app.route('/uploads/<filename>')
+        flash('Failed to retrieve the selected cocktail.', 'danger')
+
+    return render_template('add_api_cocktails.html', form=form)
+
+
+# Similar changes should be made wherever you are calling the async functions.
+
+@app.route('/my-cocktails')
+def my_cocktails():
+    user_id = session.get('user_id')
+    if not user_id:
+        flash('You must be logged in to view your cocktails!', 'danger')
+        return redirect(url_for('login'))
+
+    user = User.query.get(user_id)
+    cocktail_id = request.args.get('cocktail_id')  # Get the cocktail_id from the query parameters
+
+    # Initialize an empty list to store cocktail details:
+    cocktail_details = []
+    cocktail_api = None
+
+    if cocktail_id:
+        # Fetch the specific cocktail from the API using its ID:
+        response = requests.get(f"{BASE_URL}/lookup.php?i={cocktail_id}")
+        if response.status_code != 200:
+            flash('Failed to retrieve the cocktail.', 'danger')
+            return redirect(url_for('my_cocktails'))
+
+        cocktail_api = response.json().get('drinks', [{}])[0]  # Get the first cocktail data from the API response
+
+        # Check if the cocktail already exists in the database:
+        existing_cocktail = Cocktail.query.filter_by(name=cocktail_api['strDrink']).first()
+
+        # If not, create a new entry:
+        if not existing_cocktail:
+            process_and_store_new_cocktail(cocktail_api, user_id)  # New function to abstract some tasks
+
+    # Fetch all cocktails related to the user
+    user_cocktails = [relation.cocktails for relation in user.cocktails_relation]
+
+    for cocktail in user_cocktails:
+        # Retrieve ingredients through the 'ingredients_relation' attribute
+        ingredients_list = cocktail.ingredients_relation
+        ingredients = [{'ingredient': i.ingredient.name, 'measure': i.quantity} for i in ingredients_list]
+
+        detail = {
+            'id': cocktail.id,
+            'strDrink': cocktail.name,
+            'strInstructions': cocktail.instructions,
+            'ingredients': ingredients
+        }
+
+        # If it's a user-uploaded cocktail, set image URL accordingly
+        if hasattr(cocktail, 'image_url') and cocktail.image_url:
+            detail['strDrinkThumb'] = url_for('uploaded_file', filename=cocktail.image_url)
+        elif hasattr(cocktail, 'strDrinkThumb') and cocktail.strDrinkThumb:
+            detail['strDrinkThumb'] = cocktail.strDrinkThumb
+
+        cocktail_details.append(detail)
+
+    # Sort the cocktails alphabetically:
+    cocktail_details = sorted(cocktail_details, key=lambda x: x['strDrink'])
+
+    return render_template('my_cocktails.html', cocktails=cocktail_details)
+
+def process_and_store_new_cocktail(cocktail_api, user_id):
+    new_cocktail = Cocktail(
+        name=cocktail_api['strDrink'],
+        instructions=cocktail_api['strInstructions'],
+        strDrinkThumb=cocktail_api.get('strDrinkThumb')  # Save the strDrinkThumb from the API
+    )
+    # ... rest of the function ...
+    db.session.add(new_cocktail)
+    db.session.commit()
+
+    # Loop through the ingredients from the API response
+    for i in range(1, 16):  # Since there can be up to 15 ingredients in the API
+        ingredient_name = cocktail_api.get(f'strIngredient{i}')
+        measure = cocktail_api.get(f'strMeasure{i}')
+
+        if ingredient_name:  # If there's an ingredient name
+            ingredient_obj = store_or_get_ingredient(ingredient_name)  # Another function to simplify ingredient handling
+
+            # Add to the Cocktails_Ingredients table:
+            ci_entry = Cocktails_Ingredients(cocktail_id=new_cocktail.id, ingredient_id=ingredient_obj.id, quantity=measure)
+            db.session.add(ci_entry)
+            db.session.commit()
+
+    # Add relation between user and the new cocktail:
+    relation = Cocktails_Users(user_id=user_id, cocktail_id=new_cocktail.id)
+    db.session.add(relation)
+    db.session.commit()
+
+def store_or_get_ingredient(ingredient_name):
+    # Check if the ingredient already exists in the Ingredients table:
+    ingredient_obj = Ingredient.query.filter_by(name=ingredient_name).first()
+
+    # If not, create a new ingredient:
+    if not ingredient_obj:
+        ingredient_obj = Ingredient(name=ingredient_name)
+        db.session.add(ingredient_obj)
+        db.session.commit()
+
+    return ingredient_obj
+
+@app.route('/add-original-cocktails', methods=['GET', 'POST'])
+def add_original_cocktails():
+    form = OriginalCocktailForm()
+    if form.validate_on_submit():
+        # Filter out empty ingredients and measures
+        ingredients = [i for i in form.ingredients.data if i]
+        measures = [m for m in form.measures.data if m]
+
+        # Save the cocktail details to the database
+        new_cocktail = Cocktail(name=form.name.data, instructions=form.instructions.data)
+        db.session.add(new_cocktail)
+        db.session.commit()
+
+        user_id = session.get('user_id')
+        relation = Cocktails_Users(user_id=user_id, cocktail_id=new_cocktail.id)
+        db.session.add(relation)
+        db.session.commit()
+
+
+        for ingredient, measure in zip(form.ingredients.data, form.measures.data):
+            ingredient_obj = Ingredient.query.filter_by(name=ingredient).first()
+            if not ingredient_obj:
+                ingredient_obj = Ingredient(name=ingredient)
+                db.session.add(ingredient_obj)
+                db.session.commit()
+            ci_entry = Cocktails_Ingredients(cocktail_id=new_cocktail.id, ingredient_id=ingredient_obj.id, quantity=measure)
+            db.session.add(ci_entry)
+            db.session.commit()
+            
+        # Optionally, save the image if it was provided
+        cocktail_name = form.name.data
+        cocktail = {"strDrink": cocktail_name, "strInstructions": form.instructions.data, "strDrinkThumb": None}
+        image = form.image.data
+        if image and image.filename:
+            filename = secure_filename(image.filename)
+            filepath = os.path.join(app.config['UPLOADED_PHOTOS_DEST'], filename)
+            image.save(filepath)
+            cocktail["strDrinkThumb"] = url_for('uploaded_file', filename=filename)
+            new_cocktail.image_url = filename
+            db.session.commit()
+
+        flash('Successfully added your original cocktail!', 'success')
+        return redirect(url_for('my_cocktails'))
+
+    return render_template('add_original_cocktails.html', form=form)
+
+@app.route('/static/uploads/<filename>')
 def uploaded_file(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+    return send_from_directory(app.config['UPLOADED_PHOTOS_DEST'], filename)
+
+@app.route('/edit-cocktail/<int:cocktail_id>', methods=['GET', 'POST'])
+def edit_cocktail(cocktail_id):
+    # Ensure the user is logged in.
+    if 'user_id' not in session:
+        flash('You must be logged in to edit cocktails!', 'danger')
+        return redirect(url_for('login'))
+
+    # Retrieve the cocktail the user wants to edit.
+    cocktail = Cocktail.query.get_or_404(cocktail_id)
+
+    # Create and process the form for editing cocktails.
+    form = EditCocktailForm(obj=cocktail)  # You need to create an EditCocktailForm similar to your OriginalCocktailForm.
+
+    if form.validate_on_submit():
+        cocktail.name = form.name.data
+        cocktail.instructions = form.instructions.data
+
+        image = form.image.data
+        if image and image.filename:
+            filename = secure_filename(image.filename)
+            filepath = os.path.join(app.config['UPLOADED_PHOTOS_DEST'], filename)
+            image.save(filepath)
+            cocktail.strDrinkThumb = filepath  # Be consistent with your model
+
+        # Handle the ingredients - this part changes significantly
+        new_ingredients = form.ingredients.data  # This assumes your form's field is named 'ingredients'
+
+        # First, let's find and detach ingredients that are no longer present
+        for ci in cocktail.ingredients_relation[:]:  # iterate over a copy of the list
+            if ci.ingredient.name not in [ing['name'] for ing in new_ingredients]:
+                cocktail.ingredients_relation.remove(ci)
+                db.session.delete(ci)  # This might be optional depending on your cascade settings
+
+        # Now, handle adding/updating ingredients
+        for ingredient_data in new_ingredients:
+            # Check if the ingredient is already associated with the cocktail
+            assoc = next(
+                (ci for ci in cocktail.ingredients_relation if ci.ingredient.name == ingredient_data['name']), 
+                None)
+            if assoc:
+                # Update existing association
+                assoc.quantity = ingredient_data['quantity']
+            else:
+                # New ingredient for this cocktail
+                ingredient_obj = Ingredient.query.filter_by(name=ingredient_data['name']).first()
+                if ingredient_obj is None:
+                    # Safety check if the ingredient doesn't exist, though it should
+                    ingredient_obj = Ingredient(name=ingredient_data['name'])
+                    db.session.add(ingredient_obj)
+                
+                new_assoc = Cocktails_Ingredients(
+                    cocktail=cocktail, 
+                    ingredient=ingredient_obj, 
+                    quantity=ingredient_data['quantity']
+                )
+                db.session.add(new_assoc)
+
+        db.session.commit()
+        flash('Your cocktail has been updated!', 'success')
+        return redirect(url_for('my_cocktails'))
+
+    # If it's a GET request, we'll need to populate the form with existing ingredients.
+    else:
+        # Create form fields for existing ingredients.
+        for assoc in cocktail.ingredients_relation:  # Note that we're now looping through 'ingredients_relation'
+            ingredient_form = IngredientForm()
+            ingredient_form.name.data = assoc.ingredient.name  # Accessing the 'Ingredient' instance through the relationship
+            ingredient_form.quantity.data = assoc.quantity  # 'quantity' is an attribute of the association, not 'Ingredient'
+            form.ingredients.append_entry(ingredient_form)
+    # Render the editing form with the current cocktail details.
+    return render_template('edit_my_cocktails.html', form=form, cocktail=cocktail)
+
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
     """Produce login form or handle login."""
-
     form = LoginForm()
-    if not form.validate_on_submit():
-        return render_template("users/login.html", form=form)
-    # otherwise
-    name = form.username.data
-    pwd = form.password.data
-    # authenticate will return a user or False
-    user = User.authenticate(name, pwd)
 
-    if not user:
-        return render_template("users/login.html", form=form)
-    # otherwise
+    if form.validate_on_submit():
+        name = form.username.data
+        pwd = form.password.data
+        user = User.authenticate(name, pwd)
 
-    form.username.errors = ["Bad name/password"]
-    session["user_id"] = user.id  
-    return redirect(f"/users/profile/{user.id}")
+        if user:
+            session["user_id"] = user.id  
+            return redirect(url_for('homepage'))
 
+        form.username.errors = ["Bad name/password"]
+
+    return render_template("users/login.html", form=form)
 
 @app.route("/logout")
 def logout():
