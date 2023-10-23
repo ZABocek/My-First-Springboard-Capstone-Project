@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <div class="my_cocktails">
+    <h2>My Cocktails</h2>
+    {% for cocktail in cocktails %}
+      <h3>{{ cocktail.strDrink }}</h3>
+      {% if cocktail.get('strDrinkThumb') and cocktail.strDrinkThumb.startswith('http') %}
+        <img src="{{ cocktail.strDrinkThumb }}" alt="{{ cocktail.strDrink }}" />
+      {% elif cocktail.get('strDrinkThumb') %}
+        <img src="{{ cocktail.strDrinkThumb }}" alt="{{ cocktail.strDrink }}" />
+      {% endif %}
+      <p><strong>Ingredients:</strong></p>
+      <ul>
+        {% for item in cocktail.ingredients %}
+          <li>{{ item.ingredient }} - {{ item.measure or '' }}</li>
+        {% endfor %}
+      </ul>
+      <p><strong>Instructions:</strong> {{ cocktail.strInstructions }}</p>
+      <hr>
+      <a href="{{ url_for('edit_cocktail', cocktail_id=cocktail.id) }}" class="btn btn-primary">Edit</a>
+      <hr>
+    {% endfor %}
+  </div>
+{% endblock %}
