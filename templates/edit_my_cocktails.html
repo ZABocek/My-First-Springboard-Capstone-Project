@@ -1,42 +1,64 @@
-{% extends "base.html" %}
-{% block content %}
-  <div class="edit_my_cocktails">
-    <h2>Edit Your Cocktail</h2>
-    <form method="post" enctype="multipart/form-data">
-        {{ form.hidden_tag() }}
-        {{ form.name.label }} {{ form.name(class='form-control') }}<br>
-        {{ form.image.label }} {{ form.image() }}<br>
-        <div id="ingredients">
-            <!-- Existing ingredients -->
-            {% for ingredient in form.ingredients %}
-            <div class="ingredient">
-                {{ ingredient.form.name(class="form-control") }}
-                {{ ingredient.form.measure(class="form-control") }}
-                <button type="button" class="remove-ingredient btn btn-danger">Remove</button>
-            </div>
-            {% endfor %}
-        </div>
-        <button type="button" id="add-ingredient" class="btn btn-primary">Add Ingredient</button>
-        {{ form.instructions.label }} {{ form.instructions() }} <br>
-        <div>
-            {{ form.submit(class="btn btn-success") }}
-        </div>                                         
-    </form>
-  </div>
-  <script>
-    // JavaScript for adding and removing ingredient fields
-    $(document).ready(function() {
-        $('#add-ingredient').click(function() {
-            var ingredient = $('#ingredients .ingredient:first').clone();
-            ingredient.find('input').val('');  // clear the values in the cloned fields
-            ingredient.appendTo('#ingredients');
-        });
+{% extends "base.html" %} {% block content %}
+<div class="edit_my_cocktails">
+  <h2>Edit Your Cocktail</h2>
+  <form method="post" enctype="multipart/form-data">
+    {{ form.hidden_tag() }} {{ form.name.label }} {{
+    form.name(class='form-control') }}<br />
+    {% if cocktail.strDrinkThumb %}
+      <img src="{{ cocktail.strDrinkThumb }}" alt="{{ cocktail.strDrink }}" />
+      <label>Change Image: </label>{{ form.image() }}<br />
+    {% else %}
+      <label>Upload Image: </label>{{ form.image() }}<br />
+    {% endif %}
 
-        $('form').on('click', '.remove-ingredient', function() {
-            if ($('#ingredients .ingredient').length > 1) {  // keep at least one ingredient field
-                $(this).parent('.ingredient').remove();
-            }
+    <div id="ingredients">
+      <!-- Existing ingredients -->
+      {% for ingredient_form in form.ingredients %}
+      <div class="ingredient">
+        {{ ingredient_form.ingredient.data(class="form-control") }} {{
+        ingredient_form.measure.data(class="form-control") }}
+        <button type="button" class="remove-ingredient btn btn-danger">
+          Remove
+        </button>
+      </div>
+      {% endfor %}
+    </div>
+    <button type="button" id="add-ingredient" class="btn btn-primary">
+      Add Ingredient
+    </button>
+    {{ form.instructions.label }} {{ form.instructions() }} <br />
+    <div>{{ form.submit(class="btn btn-success") }}</div>
+  </form>
+</div>
+<script>
+  // JavaScript for adding and removing ingredient fields
+  $('input[type="file"]').on('change', function() {
+    var files = $(this).prop('files');
+    if (files && files[0]) {
+        var img = $('img');  // the <img> tag to show the preview
+        img.attr('src', URL.createObjectURL(files[0]));
+        img.on('load', function() {
+            URL.revokeObjectURL(img.attr('src'));  
         });
+      }
     });
-  </script>
+
+
+  $(document).ready(function () {
+    $("#add-ingredient").click(function () {
+      var ingredient = $("#ingredients .ingredient:first").clone();
+      ingredient.find("input").val(""); // clear the values in the cloned fields
+      ingredient.appendTo("#ingredients");
+    });
+
+    $("form").on("click", ".remove-ingredient", function () {
+      if ($("#ingredients .ingredient").length > 1) { 
+          $(this).parent(".ingredient").remove();
+      } else {
+          // Flash a warning message.
+          alert("At least one ingredient is required!"); // Replace this with a more user-friendly flash message if you want.
+      }
+    });  
+  });
+</script>
 {% endblock %}

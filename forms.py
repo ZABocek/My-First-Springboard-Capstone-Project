@@ -23,7 +23,7 @@ class UserFavoriteIngredientForm(FlaskForm):
     add_ingredient = SubmitField('Add Ingredient')
 
 class IngredientForm(FlaskForm):
-    ingredient = SelectField('Ingredient', choices=[])
+    ingredient = StringField('Ingredient', validators=[DataRequired()])
     measure = StringField('Measure', validators=[DataRequired()])  # Changed from quantity to measure
 
 class CocktailForm(FlaskForm):
@@ -50,7 +50,6 @@ class EditCocktailForm(FlaskForm):
     image = FileField('Upload Cocktail Image', validators=[FileAllowed(['jpg', 'png', 'jpeg'], 'Images only!'), Optional()])
     # Add the same fields as in your OriginalCocktailForm, or adjust as necessary for editing.
     name = StringField('Cocktail Name', validators=[DataRequired()])
-    ingredients = FieldList(StringField('Ingredient', validators=[DataRequired()]), min_entries=1, max_entries=10)
-    measure = FieldList(StringField('Measure', validators=[DataRequired()]), min_entries=1, max_entries=10)
+    ingredients = FieldList(FormField(IngredientForm), min_entries=1, max_entries=10)
     instructions = TextAreaField('Instructions', validators=[DataRequired()])                
     submit = SubmitField('Update Cocktail')

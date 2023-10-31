@@ -1,6 +1,6 @@
 from flask import current_app as app, Flask, render_template, redirect, send_from_directory, send_file, session, flash, url_for, request
+from flask_wtf.csrf import CSRFProtect
 from concurrent.futures import ThreadPoolExecutor
-from config import SECRET_KEY
 import requests
 import asyncio
 from werkzeug.utils import secure_filename
@@ -26,6 +26,7 @@ app.config["SQLALCHEMY_ECHO"] = True
 
 toolbar = DebugToolbarExtension(app)
 app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = False
+csrf = CSRFProtect(app)
 
 connect_db(app)
 
@@ -406,15 +407,24 @@ def edit_cocktail(cocktail_id):
 
     # If it's a GET request, we'll need to populate the form with existing ingredients.
     else:
-        # Create form fields for existing ingredients.
-        for assoc in cocktail.ingredients_relation:  # Note that we're now looping through 'ingredients_relation'
-            ingredient_form = IngredientForm()
-            ingredient_form.name.data = assoc.ingredient.name  # Accessing the 'Ingredient' instance through the relationship
-            ingredient_form.quantity.data = assoc.quantity  # 'quantity' is an attribute of the association, not 'Ingredient'
-            form.ingredients.append_entry(ingredient_form)
+        all_ingredients = Ingredient.query.all()
+    IngredientForm.ingredient.choices = [(ing.name, ing.name) for ing in all_ingredients]
+
+    # Clear existing ingredients.
+    form.ingredients.entries.clear()
+
+    # Repopulate the ingredients from the relationship.
+    for assoc in cocktail.ingredients_relation:
+        ingredient_form = IngredientForm()
+        ingredient_form.ingredient.data = assoc.ingredient.name
+        ingredient_form.measure.data = assoc.quantity
+        form.ingredients.append_entry(ingredient_form)
+
+    # Debugging: Print populated ingredient data to console.
+    for ingredient in form.ingredients:
+        print(ingredient.ingredient.data, ingredient.measure.data)
     # Render the editing form with the current cocktail details.
     return render_template('edit_my_cocktails.html', form=form, cocktail=cocktail)
-
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
