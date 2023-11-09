@@ -6,6 +6,7 @@ import asyncio
 from werkzeug.utils import secure_filename
 from werkzeug.datastructures import FileStorage
 from flask_debugtoolbar import DebugToolbarExtension
+from config import SECRET_KEY
 from models import db, connect_db, User, UserFavoriteIngredients, Ingredient, Cocktails_Users, Cocktail, Cocktails_Ingredients
 from forms import RegisterForm, OriginalCocktailForm, IngredientForm, EditCocktailForm, LoginForm, PreferenceForm, UserFavoriteIngredientForm, ListCocktailsForm
 from cocktaildb_api import list_ingredients, get_cocktail_detail, get_combined_cocktails_list, lookup_cocktail, get_random_cocktail, fetch_and_prepare_cocktails
@@ -17,7 +18,6 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 app.config['UPLOADED_PHOTOS_DEST'] = UPLOADED_PHOTOS_DEST
 
 # Configure the application with the upload sets
-
 app.config['SECRET_KEY'] = SECRET_KEY
 app.config['DEBUG'] = False
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql:///name_your_poison')
@@ -255,32 +255,37 @@ def my_cocktails():
     return render_template('my_cocktails.html', cocktails=cocktail_details)
 
 def process_and_store_new_cocktail(cocktail_api, user_id):
-    new_cocktail = Cocktail(
-        name=cocktail_api['strDrink'],
-        instructions=cocktail_api['strInstructions'],
-        strDrinkThumb=cocktail_api.get('strDrinkThumb')  # Save the strDrinkThumb from the API
-    )
-    # ... rest of the function ...
-    db.session.add(new_cocktail)
-    db.session.commit()
+    try: 
+        new_cocktail = Cocktail(
+            name=cocktail_api['strDrink'],
+            instructions=cocktail_api['strInstructions'],
+            strDrinkThumb=cocktail_api.get('strDrinkThumb')  # Save the strDrinkThumb from the API
+        )
+        # ... rest of the function ...
+        db.session.add(new_cocktail)
+        db.session.commit()
 
-    # Loop through the ingredients from the API response
-    for i in range(1, 16):  # Since there can be up to 15 ingredients in the API
-        ingredient_name = cocktail_api.get(f'strIngredient{i}')
-        measure = cocktail_api.get(f'strMeasure{i}')
+        # Loop through the ingredients from the API response
+        for i in range(1, 16):  # Since there can be up to 15 ingredients in the API
+            ingredient_name = cocktail_api.get(f'strIngredient{i}')
+            measure = cocktail_api.get(f'strMeasure{i}')
 
-        if ingredient_name:  # If there's an ingredient name
-            ingredient_obj = store_or_get_ingredient(ingredient_name)  # Another function to simplify ingredient handling
+            if ingredient_name:  # If there's an ingredient name
+                ingredient_obj = store_or_get_ingredient(ingredient_name)  # Another function to simplify ingredient handling
 
-            # Add to the Cocktails_Ingredients table:
-            ci_entry = Cocktails_Ingredients(cocktail_id=new_cocktail.id, ingredient_id=ingredient_obj.id, quantity=measure)
-            db.session.add(ci_entry)
-            db.session.commit()
+                # Add to the Cocktails_Ingredients table:
+                ci_entry = Cocktails_Ingredients(cocktail_id=new_cocktail.id, ingredient_id=ingredient_obj.id, quantity=measure)
+                db.session.add(ci_entry)
+                db.session.commit()
 
-    # Add relation between user and the new cocktail:
-    relation = Cocktails_Users(user_id=user_id, cocktail_id=new_cocktail.id)
-    db.session.add(relation)
-    db.session.commit()
+        # Add relation between user and the new cocktail:
+        relation = Cocktails_Users(user_id=user_id, cocktail_id=new_cocktail.id)
+        db.session.add(relation)
+        db.session.commit()
+
+    except Exception as e:
+        app.logger.error(f"Failed to process or store new cocktail: {e}")
+        db.session.rollback()
 
 def store_or_get_ingredient(ingredient_name):
     # Check if the ingredient already exists in the Ingredients table:
@@ -350,6 +355,8 @@ def edit_cocktail(cocktail_id):
     if 'user_id' not in session:
         flash('You must be logged in to edit cocktails!', 'danger')
         return redirect(url_for('login'))
+    
+
 
     # Retrieve the cocktail the user wants to edit.
     cocktail = Cocktail.query.get_or_404(cocktail_id)
@@ -357,7 +364,12 @@ def edit_cocktail(cocktail_id):
     # Create and process the form for editing cocktails.
     form = EditCocktailForm(obj=cocktail)  # You need to create an EditCocktailForm similar to your OriginalCocktailForm.
 
-    if form.validate_on_submit():
+    
+    
+    if request.method == 'POST' and 'add-ingredient' in request.form:
+        form.ingredients.append_entry()
+
+    elif form.validate_on_submit():
         cocktail.name = form.name.data
         cocktail.instructions = form.instructions.data
 
@@ -373,7 +385,7 @@ def edit_cocktail(cocktail_id):
 
         # First, let's find and detach ingredients that are no longer present
         for ci in cocktail.ingredients_relation[:]:  # iterate over a copy of the list
-            if ci.ingredient.name not in [ing['name'] for ing in new_ingredients]:
+            if ci.ingredient.name not in [ing['ingredient'] for ing in new_ingredients]:
                 cocktail.ingredients_relation.remove(ci)
                 db.session.delete(ci)  # This might be optional depending on your cascade settings
 
@@ -381,23 +393,23 @@ def edit_cocktail(cocktail_id):
         for ingredient_data in new_ingredients:
             # Check if the ingredient is already associated with the cocktail
             assoc = next(
-                (ci for ci in cocktail.ingredients_relation if ci.ingredient.name == ingredient_data['name']), 
+                (ci for ci in cocktail.ingredients_relation if ci.ingredient.name == ingredient_data['ingredient']), 
                 None)
             if assoc:
                 # Update existing association
-                assoc.quantity = ingredient_data['quantity']
+                assoc.quantity = ingredient_data['measure']
             else:
                 # New ingredient for this cocktail
-                ingredient_obj = Ingredient.query.filter_by(name=ingredient_data['name']).first()
+                ingredient_obj = Ingredient.query.filter_by(name=ingredient_data['ingredient']).first()
                 if ingredient_obj is None:
                     # Safety check if the ingredient doesn't exist, though it should
-                    ingredient_obj = Ingredient(name=ingredient_data['name'])
+                    ingredient_obj = Ingredient(name=ingredient_data['ingredient'])
                     db.session.add(ingredient_obj)
                 
                 new_assoc = Cocktails_Ingredients(
                     cocktail=cocktail, 
                     ingredient=ingredient_obj, 
-                    quantity=ingredient_data['quantity']
+                    quantity=ingredient_data['measure']
                 )
                 db.session.add(new_assoc)
 
@@ -408,22 +420,23 @@ def edit_cocktail(cocktail_id):
     # If it's a GET request, we'll need to populate the form with existing ingredients.
     else:
         all_ingredients = Ingredient.query.all()
-    IngredientForm.ingredient.choices = [(ing.name, ing.name) for ing in all_ingredients]
+        IngredientForm.ingredient.choices = [(ing.name, ing.name) for ing in all_ingredients]
 
-    # Clear existing ingredients.
-    form.ingredients.entries.clear()
+        # Clear existing ingredients.
+        form.ingredients.entries.clear()
 
-    # Repopulate the ingredients from the relationship.
-    for assoc in cocktail.ingredients_relation:
-        ingredient_form = IngredientForm()
-        ingredient_form.ingredient.data = assoc.ingredient.name
-        ingredient_form.measure.data = assoc.quantity
-        form.ingredients.append_entry(ingredient_form)
+        # Repopulate the ingredients from the relationship.
+        for assoc in cocktail.ingredients_relation:
+            ingredient_form = IngredientForm()
+            ingredient_form.ingredient.data = assoc.ingredient.name
+            ingredient_form.measure.data = assoc.quantity
+            form.ingredients.append_entry(ingredient_form.data)
+        
+        
+        # Debugging: Print populated ingredient data to console.
+       
+        # Render the editing form with the current cocktail details.
 
-    # Debugging: Print populated ingredient data to console.
-    for ingredient in form.ingredients:
-        print(ingredient.ingredient.data, ingredient.measure.data)
-    # Render the editing form with the current cocktail details.
     return render_template('edit_my_cocktails.html', form=form, cocktail=cocktail)
 
 @app.route("/login", methods=["GET", "POST"])

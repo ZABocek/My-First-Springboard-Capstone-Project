@@ -38,15 +38,22 @@ async def list_ingredients():
 async def get_cocktails_by_first_letter(letter):
     url = f"{BASE_URL}/search.php?f={letter}"
     try:
-        async with httpx.AsyncClient() as client:
+        # Define a timeout for the request
+        timeout = httpx.Timeout(10.0, connect=5.0)
+        
+        async with httpx.AsyncClient(timeout=timeout) as client:
             response = await client.get(url)
             response.raise_for_status()
             
             # Extract the cocktail data from the response
             cocktails = response.json().get('drinks', [])
             return cocktails
-    except (httpx.RequestError, httpx.HTTPStatusError) as exc:
-        print(f"An error occurred: {exc}")
+
+    except httpx.RequestError as exc:
+        print(f"An error occurred while requesting {exc.request.url!r}.")
+        return None
+    except httpx.HTTPStatusError as exc:
+        print(f"Error response {exc.response.status_code} while requesting {exc.request.url!r}.")
         return None
 
 def lookup_cocktail(cocktail_id):
@@ -62,12 +69,20 @@ def lookup_cocktail(cocktail_id):
 async def get_combined_cocktails_list():
     # Choose the letters you want to query for. You can expand this range as needed.
     letters = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']  # Add more letters based on your requirement
-    tasks = [get_cocktails_by_first_letter(letter) for letter in letters]
+    # Limit the number of concurrent tasks if necessary
+    semaphore = asyncio.Semaphore(10)  # adjust the number as needed
 
+    async def limited_get_cocktails_by_first_letter(l):
+        async with semaphore:
+            return await get_cocktails_by_first_letter(l)
+
+    tasks = [limited_get_cocktails_by_first_letter(letter) for letter in letters]
     cocktail_lists = await asyncio.gather(*tasks)
 
-    # Combine all cocktail lists into a single list
-    combined_cocktails = []
+
+    # Combine all cocktail lists into a single list, excluding None values
+    combined_cocktails = [cocktail for cocktail_list in cocktail_lists if cocktail_list for cocktail in cocktail_list]
+
     for cocktail_list in cocktail_lists:
         if cocktail_list:  # If the request was successful and we have a list
             combined_cocktails.extend(cocktail_list)
