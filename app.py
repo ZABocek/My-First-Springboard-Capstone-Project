@@ -69,6 +69,7 @@ def register():
 
 @app.route('/users/profile/<int:user_id>', methods=['GET', 'POST'])
 def profile(user_id):
+    """Page where user selects their preferred ingredients and whether they prefer alcohol"""
     user = User.query.get_or_404(user_id)
     preference_form = PreferenceForm()
     ingredient_form = UserFavoriteIngredientForm()
@@ -125,6 +126,7 @@ def profile(user_id):
 
 @app.route('/cocktails', methods=['GET', 'POST'])
 def list_cocktails():
+    """Place where users can go to see cocktails in a dropdown menu"""
     form = ListCocktailsForm()
     try:
         # Create a new event loop
@@ -150,6 +152,7 @@ def list_cocktails():
 
 @app.route('/cocktail/<int:cocktail_id>')
 def cocktail_details(cocktail_id):
+    """Place where user can explore available cocktails in API"""
     try:
         cocktail = get_cocktail_detail(cocktail_id)
         if not cocktail:
@@ -165,6 +168,7 @@ def cocktail_details(cocktail_id):
 
 @app.route('/add_api_cocktails', methods=['GET', 'POST'])
 async def add_api_cocktails():
+    """Add API cocktails to user's account"""
     if 'user_id' not in session:
         flash('You must be logged in to add cocktails!', 'danger')
         return redirect(url_for('login'))
@@ -198,6 +202,7 @@ async def add_api_cocktails():
 
 @app.route('/my-cocktails')
 def my_cocktails():
+    """User views cocktails on their account"""
     user_id = session.get('user_id')
     if not user_id:
         flash('You must be logged in to view your cocktails!', 'danger')
@@ -255,6 +260,7 @@ def my_cocktails():
     return render_template('my_cocktails.html', cocktails=cocktail_details)
 
 def process_and_store_new_cocktail(cocktail_api, user_id):
+    """Helper function that assists in adding API cocktail to user's account"""
     try: 
         new_cocktail = Cocktail(
             name=cocktail_api['strDrink'],
