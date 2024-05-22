@@ -1,29 +1,38 @@
 from flask import current_app as app, Flask, render_template, redirect, send_from_directory, send_file, session, flash, url_for, request
 # Import necessary Flask modules and other dependencies
 from flask_wtf.csrf import CSRFProtect
-# Import necessary Flask modules and other dependencies
+# Import CSRF protection for Flask forms
 from concurrent.futures import ThreadPoolExecutor
 import requests
+# Import requests for making HTTP requests
 import asyncio
+# Import asyncio for asynchronous programming
 from werkzeug.utils import secure_filename
+# Import secure_filename to ensure safe file names for uploads
 from werkzeug.datastructures import FileStorage
 from flask_debugtoolbar import DebugToolbarExtension
-# Import necessary Flask modules and other dependencies
+# Import DebugToolbarExtension for debugging purposes
 from config import SECRET_KEY
+# Import the secret key for session management
 from models import db, connect_db, User, UserFavoriteIngredients, Ingredient, Cocktails_Users, Cocktail, Cocktails_Ingredients
+# Import models for the database
 from forms import RegisterForm, OriginalCocktailForm, IngredientForm, EditCocktailForm, LoginForm, PreferenceForm, UserFavoriteIngredientForm, ListCocktailsForm
+# Import forms for user input
 from cocktaildb_api import list_ingredients, get_cocktail_detail, get_combined_cocktails_list, lookup_cocktail, get_random_cocktail, fetch_and_prepare_cocktails
+# Import functions to interact with the cocktail API
 import os
+# Import os for interacting with the operating system
+
 app = Flask(__name__)
 # Initialize the Flask application
-UPLOADED_PHOTOS_DEST = 'static/uploads'
-# Set the destination for uploaded photos
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
-# Set the folder where you want to store the uploaded images
-app.config['UPLOADED_PHOTOS_DEST'] = UPLOADED_PHOTOS_DEST
-# Set the destination for uploaded photos
 
-# Configure the application with the upload sets
+UPLOADED_PHOTOS_DEST = 'static/uploads'
+# Set the destination folder for uploaded photos
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
+# Define the allowed file extensions for uploads
+app.config['UPLOADED_PHOTOS_DEST'] = UPLOADED_PHOTOS_DEST
+# Configure the upload destination for Flask
+
 app.config['SECRET_KEY'] = SECRET_KEY
 # Set the secret key for session management
 app.config['DEBUG'] = False
@@ -31,11 +40,14 @@ app.config['DEBUG'] = False
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql:///name_your_poison')
 # Set the database URI for SQLAlchemy
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+# Disable track modifications for SQLAlchemy
 app.config["SQLALCHEMY_ECHO"] = True
+# Enable echo for SQLAlchemy to log SQL queries
 
 toolbar = DebugToolbarExtension(app)
 # Set up the debug toolbar for Flask
 app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = False
+# Prevent the debug toolbar from intercepting redirects
 csrf = CSRFProtect(app)
 # Set up CSRF protection for Flask
 
@@ -43,16 +55,19 @@ connect_db(app)
 # Connect the Flask app to the database
 
 with app.app_context():
-# Create the database schema within the app context
+    # Create the database schema within the app context
     db.drop_all()
+    # Drop all existing database tables
     db.create_all()
+    # Create all database tables
+
 executor = ThreadPoolExecutor()
 # Initialize a ThreadPoolExecutor for concurrent tasks
 BASE_URL = "https://www.thecocktaildb.com/api/json/v1/1"
 # Define the base URL for the cocktail API
+
 @app.route("/")
 def homepage():
-# Route for the homepage
     """Show homepage with links to site areas."""
     if "user_id" in session:
         return render_template("index.html")
@@ -61,7 +76,6 @@ def homepage():
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
-# Route for user registration
     """Register user: produce form & handle form submission."""
     if "user_id" in session:
         return redirect(url_for('homepage'))
@@ -86,7 +100,6 @@ def register():
 
 @app.route('/users/profile/<int:user_id>', methods=['GET', 'POST'])
 def profile(user_id):
-# Route for user profile
     """Page where user selects their preferred ingredients and whether they prefer alcohol"""
     user = User.query.get_or_404(user_id)
     preference_form = PreferenceForm()
@@ -144,7 +157,6 @@ def profile(user_id):
 
 @app.route('/cocktails', methods=['GET', 'POST'])
 def list_cocktails():
-# Route to list cocktails
     """Place where users can go to see cocktails in a dropdown menu"""
     form = ListCocktailsForm()
     try:
@@ -171,7 +183,6 @@ def list_cocktails():
 
 @app.route('/cocktail/<int:cocktail_id>')
 def cocktail_details(cocktail_id):
-# Route to display cocktail details
     """Place where user can explore available cocktails in API"""
     try:
         cocktail = get_cocktail_detail(cocktail_id)
@@ -188,7 +199,6 @@ def cocktail_details(cocktail_id):
 
 @app.route('/add_api_cocktails', methods=['GET', 'POST'])
 async def add_api_cocktails():
-# Route to add cocktails from the API
     """Add API cocktails to user's account"""
     if 'user_id' not in session:
         flash('You must be logged in to add cocktails!', 'danger')
@@ -218,12 +228,8 @@ async def add_api_cocktails():
 
     return render_template('add_api_cocktails.html', form=form)
 
-
-# Similar changes should be made wherever you are calling the async functions.
-
 @app.route('/my-cocktails')
 def my_cocktails():
-# Route to display user's cocktails
     """User views cocktails on their account"""
     user_id = session.get('user_id')
     if not user_id:
@@ -240,7 +246,6 @@ def my_cocktails():
     if cocktail_id:
         # Fetch the specific cocktail from the API using its ID:
         response = requests.get(f"{BASE_URL}/lookup.php?i={cocktail_id}")
-# Define the base URL for the cocktail API
         if response.status_code != 200:
             flash('Failed to retrieve the cocktail.', 'danger')
             return redirect(url_for('my_cocktails'))
@@ -283,7 +288,6 @@ def my_cocktails():
     return render_template('my_cocktails.html', cocktails=cocktail_details)
 
 def process_and_store_new_cocktail(cocktail_api, user_id):
-# Helper function to process and store a new cocktail
     """Helper function that assists in adding API cocktail to user's account"""
     try: 
         new_cocktail = Cocktail(
@@ -291,7 +295,7 @@ def process_and_store_new_cocktail(cocktail_api, user_id):
             instructions=cocktail_api['strInstructions'],
             strDrinkThumb=cocktail_api.get('strDrinkThumb')  # Save the strDrinkThumb from the API
         )
-        # ... rest of the function ...
+        # Save the new cocktail to the database
         db.session.add(new_cocktail)
         db.session.commit()
 
@@ -318,7 +322,7 @@ def process_and_store_new_cocktail(cocktail_api, user_id):
         db.session.rollback()
 
 def store_or_get_ingredient(ingredient_name):
-# Helper function to store or retrieve an ingredient
+    """Helper function to store or retrieve an ingredient"""
     # Check if the ingredient already exists in the Ingredients table:
     ingredient_obj = Ingredient.query.filter_by(name=ingredient_name).first()
 
@@ -332,7 +336,7 @@ def store_or_get_ingredient(ingredient_name):
 
 @app.route('/add-original-cocktails', methods=['GET', 'POST'])
 def add_original_cocktails():
-# Route to add original cocktails
+    """Route to add original cocktails"""
     form = OriginalCocktailForm()
     if form.validate_on_submit():
         # Filter out empty ingredients and measures
@@ -348,7 +352,6 @@ def add_original_cocktails():
         relation = Cocktails_Users(user_id=user_id, cocktail_id=new_cocktail.id)
         db.session.add(relation)
         db.session.commit()
-
 
         for ingredient, measure in zip(form.ingredients.data, form.measures.data):
             ingredient_obj = Ingredient.query.filter_by(name=ingredient).first()
@@ -367,7 +370,6 @@ def add_original_cocktails():
         if image and image.filename:
             filename = secure_filename(image.filename)
             filepath = os.path.join(app.config['UPLOADED_PHOTOS_DEST'], filename)
-# Set the destination for uploaded photos
             image.save(filepath)
             cocktail["strDrinkThumb"] = url_for('uploaded_file', filename=filename)
             new_cocktail.image_url = filename
@@ -380,19 +382,16 @@ def add_original_cocktails():
 
 @app.route('/static/uploads/<filename>')
 def uploaded_file(filename):
-# Route to serve uploaded files
+    """Route to serve uploaded files"""
     return send_from_directory(app.config['UPLOADED_PHOTOS_DEST'], filename)
-# Set the destination for uploaded photos
 
 @app.route('/edit-cocktail/<int:cocktail_id>', methods=['GET', 'POST'])
 def edit_cocktail(cocktail_id):
-# Route to edit an existing cocktail
+    """Route to edit an existing cocktail"""
     # Ensure the user is logged in.
     if 'user_id' not in session:
         flash('You must be logged in to edit cocktails!', 'danger')
         return redirect(url_for('login'))
-    
-
 
     # Retrieve the cocktail the user wants to edit.
     cocktail = Cocktail.query.get_or_404(cocktail_id)
@@ -400,8 +399,6 @@ def edit_cocktail(cocktail_id):
     # Create and process the form for editing cocktails.
     form = EditCocktailForm(obj=cocktail)  # You need to create an EditCocktailForm similar to your OriginalCocktailForm.
 
-    
-    
     if request.method == 'POST' and 'add-ingredient' in request.form:
         form.ingredients.append_entry()
 
@@ -413,7 +410,6 @@ def edit_cocktail(cocktail_id):
         if image and image.filename:
             filename = secure_filename(image.filename)
             filepath = os.path.join(app.config['UPLOADED_PHOTOS_DEST'], filename)
-# Set the destination for uploaded photos
             image.save(filepath)
             cocktail.strDrinkThumb = filepath  # Be consistent with your model
 
@@ -468,17 +464,11 @@ def edit_cocktail(cocktail_id):
             ingredient_form.ingredient.data = assoc.ingredient.name
             ingredient_form.measure.data = assoc.quantity
             form.ingredients.append_entry(ingredient_form.data)
-        
-        
-        # Debugging: Print populated ingredient data to console.
-       
-        # Render the editing form with the current cocktail details.
 
     return render_template('edit_my_cocktails.html', form=form, cocktail=cocktail)
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
-# Route for user login
     """Produce login form or handle login."""
     form = LoginForm()
 
@@ -497,7 +487,6 @@ def login():
 
 @app.route("/logout")
 def logout():
-# Route for user logout
     """Logs user out and redirects to homepage."""
     session.pop("user_id")
     return redirect("/login")
