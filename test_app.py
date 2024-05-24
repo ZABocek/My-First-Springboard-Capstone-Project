@@ -1,6 +1,7 @@
 import unittest
 from app import app, db
 from models import User, Ingredient, Cocktail, Cocktails_Users, Cocktails_Ingredients
+import subprocess
 
 class FlaskTestCase(unittest.TestCase):
     def setUp(self):
@@ -8,6 +9,10 @@ class FlaskTestCase(unittest.TestCase):
         self.app = app.test_client()
         self.app.testing = True
         app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql:///test_name_your_poison'
+
+        # Run the SQL script to create the test database
+        subprocess.run(["psql", "-f", "create_test_db.sql"])
+
         with app.app_context():
             db.create_all()
 
