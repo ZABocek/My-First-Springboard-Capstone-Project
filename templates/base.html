@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Name Your Poison</title>
+    <link
+      rel="stylesheet"
+      href="https://stackpath.bootstrapcdn.com/bootswatch/4.1.3/lumen/bootstrap.css"
+    />
+    <link rel="stylesheet" href="/static/app.css" />
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+  </head>
+
+  <body>
+    <!-- ... rest of your base.html ... -->
+
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+      <a class="navbar-brand" href="/">NAME YOUR POISON</a>
+      <ul class="navbar-nav navbar-nav w-100">
+        {% if 'user_id' not in session %}
+        <li class="nav-item ml-auto">
+          <a class="nav-link" href="/register">Register</a>
+        </li>
+        <li class="nav-item"><a class="nav-link" href="/login">Login</a></li>
+        {% else %}
+        <!-- The new links for logged in users -->
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('list_cocktails') }}"
+            >Cocktails List</a
+          >
+        </li>
+        <li class="nav-item">
+          <a
+            class="nav-link"
+            href="{{ url_for('profile', user_id=session['user_id']) }}"
+            >My Profile</a
+          >
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('add_api_cocktails') }}"
+            >Add API Cocktails</a
+          >
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('add_original_cocktails') }}"
+            >Add Original Cocktails</a
+          >
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('my_cocktails') }}"
+            >My Cocktails</a
+          >
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('admin_unlock') }}"
+            >Admin</a
+          >
+        </li>
+        <li class="nav-item ml-auto">
+          <a class="nav-link" href="/logout">Logout</a>
+        </li>
+        {% endif %}
+      </ul>
+    </nav>
+
+    <!-- ... rest of your base.html ... -->
+
+    <div class="container" style="margin-top: 2em">
+      {% for msg in get_flashed_messages() %}
+      <div class="alert alert-danger">{{ msg }}</div>
+      {% endfor %} {% block content %} {% endblock %}
+    </div>
+  </body>
+</html>

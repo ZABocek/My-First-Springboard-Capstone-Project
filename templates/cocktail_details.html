@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <div class="cocktail_details">
+    <h2>{{ cocktail.strDrink }}</h2>
+    <img src="{{ cocktail.strDrinkThumb }}" alt="{{ cocktail.strDrink }}" />
+    <p><strong>Ingredients:</strong></p>
+    <ul>
+      {% for i in range(1, 16) %}
+        {% set ingredient = 'strIngredient'~i|string %}
+        {% set measure = 'strMeasure'~i|string %}
+        {% if cocktail[ingredient] %}
+          <li>{{ cocktail[ingredient] }} - {{ cocktail[measure] or '' }}</li>
+        {% endif %}
+      {% endfor %}
+    </ul>
+    <p><strong>Instructions:</strong> {{ cocktail.strInstructions }}</p>
+    <a href="{{ url_for('homepage') }}">Return to Homepage</a>
+  </div>
+{% endblock %}

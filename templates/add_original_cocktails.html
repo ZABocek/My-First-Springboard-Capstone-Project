@@ -1,0 +1,58 @@
+{% extends "base.html" %} {% block content %}
+<div class="add_original_cocktails">
+  <h2>Add Your Original Cocktail</h2>
+  <form method="post" enctype="multipart/form-data">
+    {{ form.hidden_tag() }} {{ form.image.label }} {{ form.image() }}<br />
+    {{ form.name.label }} {{ form.name() }}<br />
+
+    <strong>Ingredients:</strong><br />
+    <div id="ingredient-fields">
+      <div class="ingredient-group">
+        {{ form.ingredients[0]() }}<br />
+        <strong>Measures:</strong><br />
+        {{ form.measures[0]() }}<br />
+      </div>
+    </div>
+    <button type="button" id="add-ingredient">Add Another Ingredient</button>
+    <p>
+      When you're done with ingredients, leave the last ingredient and amount
+      blank and proceed to instructions.
+    </p>
+
+    {{ form.instructions.label }} {{ form.instructions() }}<br />
+    {{ form.submit() }}
+  </form>
+
+  <script>
+    let ingredientIndex = 1;
+    document
+      .getElementById("add-ingredient")
+      .addEventListener("click", function () {
+        const ingredientGroup = document.createElement("div");
+        ingredientGroup.classList.add("ingredient-group");
+
+        const ingredientField = document.createElement("input");
+        ingredientField.name = "ingredients-" + ingredientIndex;
+        ingredientField.type = "text";
+        ingredientGroup.appendChild(ingredientField);
+        ingredientGroup.appendChild(document.createElement("br"));
+
+        const measureLabel = document.createElement("strong");
+        measureLabel.innerText = "Measures:";
+        ingredientGroup.appendChild(measureLabel);
+        ingredientGroup.appendChild(document.createElement("br"));
+
+        const measureField = document.createElement("input");
+        measureField.name = "measures-" + ingredientIndex;
+        measureField.type = "text";
+        ingredientGroup.appendChild(measureField);
+        ingredientGroup.appendChild(document.createElement("br"));
+
+        document
+          .getElementById("ingredient-fields")
+          .appendChild(ingredientGroup);
+        ingredientIndex++;
+      });
+  </script>
+</div>
+{% endblock %}

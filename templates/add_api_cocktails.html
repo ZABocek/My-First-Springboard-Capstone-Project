@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <div class="add_api_cocktails">
+    <h2>Add Cocktails from API</h2>
+    <form method="POST">
+      {{ form.hidden_tag() }}  <!-- This is essential for CSRF protection -->
+      {{ form.cocktail.label }} {{ form.cocktail() }}
+      <button type="submit" class="btn btn-primary">Add to My Cocktails</button>
+    </form>
+  </div>
+{% endblock %}

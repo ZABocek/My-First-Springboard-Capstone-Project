@@ -1,0 +1,73 @@
+# Environment variables - DO NOT COMMIT
+.env
+.env.local
+.env.*.local
+
+# Database
+*.db
+*.sqlite
+cocktails.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Flask
+instance/
+.webassets-cache
+
+# Debug toolbar
+flask_debugtoolbar/
+
+# Uploaded files
+static/uploads/*
+!static/uploads/.gitkeep
+
+# Logs
+*.log
+
+# Temporary files
+api.py
+scratch.py
+
+# OS
+Thumbs.db
+.DS_Store
+
