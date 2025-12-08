@@ -27,11 +27,18 @@
                     <form method="POST">
                         {{ form.hidden_tag() }}
                         <div class="mb-3">
-                            <label for="admin_key" class="form-label">Admin Password Key:</label>
-                            <input type="password" class="form-control" id="admin_key" name="admin_key" required>
+                            {{ form.admin_key.label(class="form-label") }}
+                            {{ form.admin_key(class="form-control") }}
+                            {% if form.admin_key.errors %}
+                                <div class="alert alert-danger mt-2">
+                                    {% for error in form.admin_key.errors %}
+                                        <small>{{ error }}</small>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
                             <small class="form-text text-muted">Enter the secret admin key to proceed.</small>
                         </div>
-                        <button type="submit" class="btn btn-danger w-100">Unlock Admin Panel</button>
+                        {{ form.submit(class="btn btn-danger w-100") }}
                     </form>
                 </div>
                 <div class="card-footer bg-light">

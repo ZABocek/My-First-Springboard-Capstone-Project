@@ -146,4 +146,104 @@ body {
     border-radius: 10px;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
   }
+
+  /* Admin Panel Page Styles */
+
+  .admin_panel {
+    background-color: rgba(255, 255, 255, 0.9);
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+  }
+
+  .admin_panel h1 {
+    color: #333;
+    margin-bottom: 10px;
+    font-weight: bold;
+  }
+
+  .admin_panel .card {
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    margin-bottom: 20px;
+  }
+
+  .admin_panel .card-header {
+    font-weight: bold;
+    padding: 15px;
+  }
+
+  .admin_panel .card-body {
+    padding: 20px;
+  }
+
+  .admin_panel .table {
+    margin-bottom: 0;
+  }
+
+  .admin_panel .table thead th {
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    color: #333;
+  }
+
+  .admin_panel .table tbody tr:hover {
+    background-color: #f5f5f5;
+  }
+
+  .admin_panel .badge {
+    padding: 5px 10px;
+    font-size: 0.85rem;
+  }
+
+  .admin_panel .btn {
+    margin: 0 2px;
+  }
+
+  /* Admin Unlock Page Styles */
+
+  .admin_unlock {
+    background-color: rgba(255, 255, 255, 0.9);
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+  }
+
+  .admin_unlock .card {
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  }
+
+  .admin_unlock .card-header {
+    font-weight: bold;
+    padding: 20px;
+  }
+
+  .admin_unlock .card-body {
+    padding: 30px;
+  }
+
+  .admin_unlock .form-label {
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: #333;
+  }
+
+  .admin_unlock .form-control {
+    border-radius: 5px;
+    border: 1px solid #ddd;
+    padding: 10px 15px;
+  }
+
+  .admin_unlock .form-control:focus {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+  }
+
+  .admin_unlock .btn {
+    padding: 10px 20px;
+    font-weight: 600;
+  }
   

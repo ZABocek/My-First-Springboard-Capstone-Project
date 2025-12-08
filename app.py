@@ -19,7 +19,7 @@ from config import SECRET_KEY, ADMIN_PASSWORD_KEY, SESSION_COOKIE_HTTPONLY, SESS
 # Import models for the database
 from models import db, connect_db, User, UserFavoriteIngredients, Ingredient, Cocktails_Users, Cocktail, Cocktails_Ingredients
 # Import forms for user input
-from forms import RegisterForm, OriginalCocktailForm, IngredientForm, EditCocktailForm, LoginForm, PreferenceForm, UserFavoriteIngredientForm, ListCocktailsForm
+from forms import RegisterForm, OriginalCocktailForm, IngredientForm, EditCocktailForm, LoginForm, PreferenceForm, UserFavoriteIngredientForm, ListCocktailsForm, AdminForm
 # Import functions to interact with the cocktail API
 from cocktaildb_api import list_ingredients, get_cocktail_detail, get_combined_cocktails_list, lookup_cocktail, get_random_cocktail, fetch_and_prepare_cocktails
 # Import os for interacting with the operating system
@@ -828,9 +828,12 @@ def admin_unlock():
         if user and user.is_admin:
             return redirect(url_for('admin_panel'))
     
-    if request.method == "POST":
+    # Create an instance of the AdminForm
+    form = AdminForm()
+    
+    if form.validate_on_submit():
         # Get the admin password key from the form
-        provided_key = request.form.get("admin_key", "")
+        provided_key = form.admin_key.data
         
         # Verify the key matches the one in config
         if provided_key == ADMIN_PASSWORD_KEY:
@@ -847,7 +850,7 @@ def admin_unlock():
         else:
             flash("Invalid admin password key.", "danger")
     
-    return render_template("admin/unlock.html")
+    return render_template("admin/unlock.html", form=form)
 
 @app.route("/admin/panel")
 @admin_required

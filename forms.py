@@ -8,6 +8,14 @@ from wtforms import StringField, PasswordField, SelectField, FieldList, TextArea
 from wtforms.validators import DataRequired, Email, InputRequired, Length, EqualTo, Optional
 # Import validators to enforce rules on form fields
 
+# Define a form for admin panel unlock
+class AdminForm(FlaskForm):
+    """Form for unlocking the admin panel."""
+    admin_key = PasswordField("Admin Password Key", validators=[DataRequired()])
+    # Password field for the admin unlock key
+    submit = SubmitField('Unlock Admin Panel')
+    # Submit button for unlocking the admin panel
+
 # Define a form for user registration
 class RegisterForm(FlaskForm):
     """Form for registering a user."""
