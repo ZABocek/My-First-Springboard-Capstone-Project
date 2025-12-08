@@ -600,24 +600,41 @@ def add_original_cocktails():
             db.session.add(ci_entry)
             db.session.commit()
             
-        # Optionally, save the image if it was provided
-        cocktail_name = form.name.data
-        cocktail = {"strDrink": cocktail_name, "strInstructions": form.instructions.data, "strDrinkThumb": None}
+        # Handle image upload - THIS IS THE CRITICAL PART
         image = form.image.data
+        print(f"DEBUG: Image data = {image}")
+        print(f"DEBUG: Image filename = {image.filename if image else 'None'}")
+        
         if image and image.filename:
-            filename = secure_filename(image.filename)
-            # Create absolute path to uploads directory
-            uploads_dir = os.path.join(os.path.dirname(__file__), app.config['UPLOADED_PHOTOS_DEST'])
-            os.makedirs(uploads_dir, exist_ok=True)  # Ensure directory exists
-            filepath = os.path.join(uploads_dir, filename)
-            image.save(filepath)
-            cocktail["strDrinkThumb"] = url_for('uploaded_file', filename=filename)
-            new_cocktail.image_url = filename  # Store just the filename
-            db.session.commit()
+            try:
+                filename = secure_filename(image.filename)
+                print(f"DEBUG: Secured filename = {filename}")
+                
+                # Create absolute path to uploads directory
+                uploads_dir = os.path.join(os.path.dirname(__file__), app.config['UPLOADED_PHOTOS_DEST'])
+                print(f"DEBUG: Uploads dir = {uploads_dir}")
+                
+                os.makedirs(uploads_dir, exist_ok=True)  # Ensure directory exists
+                filepath = os.path.join(uploads_dir, filename)
+                print(f"DEBUG: Full filepath = {filepath}")
+                
+                image.save(filepath)
+                print(f"DEBUG: Image saved successfully!")
+                
+                new_cocktail.image_url = filename  # Store just the filename
+                db.session.commit()
+                print(f"DEBUG: Database updated with image_url = {filename}")
+            except Exception as e:
+                print(f"DEBUG: ERROR saving image: {e}")
+                flash(f'Error uploading image: {str(e)}', 'danger')
 
         # Flash a success message and redirect to the user's cocktails page
         flash('Successfully added your original cocktail!', 'success')
         return redirect(url_for('my_cocktails'))
+    else:
+        # Print form errors for debugging
+        if request.method == 'POST':
+            print(f"DEBUG: Form validation failed. Errors: {form.errors}")
 
     # Render the add_original_cocktails template with the form
     return render_template('add_original_cocktails.html', form=form)

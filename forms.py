@@ -74,10 +74,10 @@ class OriginalCocktailForm(FlaskForm):
     # File field for uploading an image with allowed file type validation
     name = StringField('Cocktail Name', validators=[DataRequired()])
     # String field for cocktail name with data required validation
-    ingredients = FieldList(StringField('Ingredient', validators=[DataRequired()]), min_entries=1, max_entries=10)
-    # Field list for multiple ingredient fields
-    measures = FieldList(StringField('Measure', validators=[DataRequired()]), min_entries=1, max_entries=10)
-    # Field list for multiple measure fields
+    ingredients = FieldList(StringField('Ingredient', validators=[Optional()]), min_entries=1, max_entries=10)
+    # Field list for multiple ingredient fields (Optional allows blank entries)
+    measures = FieldList(StringField('Measure', validators=[Optional()]), min_entries=1, max_entries=10)
+    # Field list for multiple measure fields (Optional allows blank entries)
     instructions = TextAreaField('Instructions', validators=[DataRequired()])
     # Text area field for cocktail instructions
     submit = SubmitField('Add Original Cocktail')
