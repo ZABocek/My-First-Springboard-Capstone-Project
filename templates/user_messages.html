@@ -1,0 +1,156 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <h1 class="display-4">My Messages with Admin</h1>
+            <p class="text-muted">View your messages and responses from the admin</p>
+            <hr>
+        </div>
+    </div>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    
+    <!-- Messages List -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <a href="{{ url_for('send_user_message') }}" class="btn btn-primary btn-lg">Send New Message to Admin</a>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-dark text-white">
+                    <h3 class="mb-0">Message Thread</h3>
+                </div>
+                <div class="card-body">
+                    {% if messages %}
+                        <div class="timeline">
+                            {% for message in messages %}
+                                <div class="timeline-item mb-4">
+                                    <!-- Your Message -->
+                                    <div class="message-box user-message mb-3">
+                                        <div class="message-header">
+                                            <strong>You</strong> - {{ message.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                            <span class="badge bg-primary float-end">
+                                                {% if message.message_type == 'suggestion' %}
+                                                    Suggestion
+                                                {% elif message.message_type == 'bug_report' %}
+                                                    Bug Report
+                                                {% else %}
+                                                    Incident Report
+                                                {% endif %}
+                                            </span>
+                                        </div>
+                                        <div class="message-subject">
+                                            <strong>{{ message.subject }}</strong>
+                                        </div>
+                                        <div class="message-content">
+                                            {{ message.message }}
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Admin Response (if exists) -->
+                                    {% if message.admin_response %}
+                                    <div class="message-box admin-message">
+                                        <div class="message-header">
+                                            <strong>Admin</strong> - {{ message.admin_response_date.strftime('%Y-%m-%d %H:%M') }}
+                                            <span class="badge bg-success float-end">Response</span>
+                                        </div>
+                                        <div class="message-subject">
+                                            <strong>Re: {{ message.subject }}</strong>
+                                        </div>
+                                        <div class="message-content">
+                                            {{ message.admin_response }}
+                                        </div>
+                                    </div>
+                                    {% else %}
+                                    <div class="alert alert-warning">
+                                        <i class="fas fa-hourglass-half"></i> Waiting for admin response...
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <hr>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted">You haven't sent any messages to the admin yet. <a href="{{ url_for('send_user_message') }}">Send one now!</a></p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Back Button -->
+    <div class="row mt-5">
+        <div class="col-md-12">
+            <a href="{{ url_for('profile', user_id=session.user_id) }}" class="btn btn-primary">Back to Profile</a>
+        </div>
+    </div>
+</div>
+
+<style>
+    .card {
+        border: none;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    }
+    
+    .message-box {
+        border-left: 4px solid #0d6efd;
+        padding: 1rem;
+        background-color: #f8f9fa;
+        border-radius: 5px;
+    }
+    
+    .message-box.user-message {
+        border-left-color: #0d6efd;
+        margin-left: 0;
+        margin-right: 2rem;
+    }
+    
+    .message-box.admin-message {
+        border-left-color: #198754;
+        margin-left: 2rem;
+        margin-right: 0;
+        background-color: #f0f9f6;
+    }
+    
+    .message-header {
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+        color: #666;
+    }
+    
+    .message-subject {
+        margin-bottom: 0.5rem;
+        color: #333;
+    }
+    
+    .message-content {
+        color: #555;
+        line-height: 1.6;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+    
+    .timeline {
+        position: relative;
+    }
+    
+    .timeline-item {
+        position: relative;
+    }
+</style>
+{% endblock %}

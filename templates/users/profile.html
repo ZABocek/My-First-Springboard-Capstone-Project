@@ -11,6 +11,13 @@
   <p>Username: {{ user.username }}</p>
   <p>Email: {{ user.email }}</p>
   
+  <div style="margin: 20px 0; padding: 15px; background-color: #e8f4f8; border-radius: 5px;">
+    <h4>Admin Communication</h4>
+    <p>Have suggestions, found a bug, or need to report something? Reach out to the admin:</p>
+    <a href="{{ url_for('send_user_message') }}" class="btn btn-primary">Send Message to Admin</a>
+    <a href="{{ url_for('user_messages') }}" class="btn btn-info">View Message History</a>
+  </div>
+  
   <form method="POST">
     {{ preference_form.csrf_token }}
     {{ preference_form.preference.label }} {{ preference_form.preference() }}

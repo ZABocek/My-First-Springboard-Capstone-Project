@@ -17,15 +17,17 @@ from flask_debugtoolbar import DebugToolbarExtension
 # Import security configuration and secrets
 from config import SECRET_KEY, ADMIN_PASSWORD_KEY, SESSION_COOKIE_HTTPONLY, SESSION_COOKIE_SAMESITE, SECURE_SSL_REDIRECT
 # Import models for the database
-from models import db, connect_db, User, UserFavoriteIngredients, Ingredient, Cocktails_Users, Cocktail, Cocktails_Ingredients
+from models import db, connect_db, User, UserFavoriteIngredients, Ingredient, Cocktails_Users, Cocktail, Cocktails_Ingredients, AdminMessage
 # Import forms for user input
-from forms import RegisterForm, OriginalCocktailForm, IngredientForm, EditCocktailForm, LoginForm, PreferenceForm, UserFavoriteIngredientForm, ListCocktailsForm, AdminForm
+from forms import RegisterForm, OriginalCocktailForm, IngredientForm, EditCocktailForm, LoginForm, PreferenceForm, UserFavoriteIngredientForm, ListCocktailsForm, AdminForm, UserMessageForm, AdminMessageForm
 # Import functions to interact with the cocktail API
 from cocktaildb_api import list_ingredients, get_cocktail_detail, get_combined_cocktails_list, lookup_cocktail, get_random_cocktail, fetch_and_prepare_cocktails
 # Import os for interacting with the operating system
 import os
 # Import functools for creating decorators
 from functools import wraps
+# Import datetime for ban tracking
+from datetime import datetime, timedelta
 
 # Initialize the Flask application
 app = Flask(__name__)
@@ -872,7 +874,7 @@ def admin_panel():
         'total_user_cocktails': total_user_cocktails
     }
     
-    return render_template("admin/panel.html", stats=stats, users=users)
+    return render_template("admin/panel.html", stats=stats, users=users, now=datetime.utcnow())
 
 @app.route("/admin/user/<int:user_id>/promote", methods=["POST"])
 @admin_required
@@ -923,4 +925,132 @@ def demote_user(user_id):
     db.session.commit()
     flash(f"User {user.username} demoted from admin.", "success")
     return redirect(url_for('admin_panel'))
+
+@app.route("/admin/user/<int:user_id>/ban", methods=["POST"])
+@admin_required
+def ban_user(user_id):
+    """Ban a user for one year."""
+    current_user = User.query.get(session.get("user_id"))
+    if not current_user or not current_user.is_admin:
+        flash("You do not have permission to perform this action.", "danger")
+        return redirect(url_for('admin_panel'))
+    
+    if user_id == current_user.id:
+        flash("You cannot ban yourself.", "warning")
+        return redirect(url_for('admin_panel'))
+    
+    user = User.query.get(user_id)
+    if not user:
+        flash("User not found.", "danger")
+        return redirect(url_for('admin_panel'))
+    
+    # Ban for one year
+    user.ban_until = datetime.utcnow() + timedelta(days=365)
+    db.session.commit()
+    flash(f"User {user.username} has been banned for one year.", "warning")
+    return redirect(url_for('admin_panel'))
+
+@app.route("/admin/user/<int:user_id>/ban-permanent", methods=["POST"])
+@admin_required
+def ban_user_permanently(user_id):
+    """Permanently ban a user."""
+    current_user = User.query.get(session.get("user_id"))
+    if not current_user or not current_user.is_admin:
+        flash("You do not have permission to perform this action.", "danger")
+        return redirect(url_for('admin_panel'))
+    
+    if user_id == current_user.id:
+        flash("You cannot ban yourself.", "warning")
+        return redirect(url_for('admin_panel'))
+    
+    user = User.query.get(user_id)
+    if not user:
+        flash("User not found.", "danger")
+        return redirect(url_for('admin_panel'))
+    
+    user.is_permanently_banned = True
+    db.session.commit()
+    flash(f"User {user.username} has been permanently banned.", "danger")
+    return redirect(url_for('admin_panel'))
+
+@app.route("/admin/user/<int:user_id>/delete", methods=["POST"])
+@admin_required
+def delete_user(user_id):
+    """Delete a user from the system."""
+    current_user = User.query.get(session.get("user_id"))
+    if not current_user or not current_user.is_admin:
+        flash("You do not have permission to perform this action.", "danger")
+        return redirect(url_for('admin_panel'))
+    
+    if user_id == current_user.id:
+        flash("You cannot delete yourself.", "warning")
+        return redirect(url_for('admin_panel'))
+    
+    user = User.query.get(user_id)
+    if not user:
+        flash("User not found.", "danger")
+        return redirect(url_for('admin_panel'))
+    
+    username = user.username
+    db.session.delete(user)
+    db.session.commit()
+    flash(f"User {username} has been deleted from the system.", "success")
+    return redirect(url_for('admin_panel'))
+
+@app.route("/admin/messages")
+@admin_required
+def admin_messages():
+    """View all user messages for the admin."""
+    messages = AdminMessage.query.order_by(AdminMessage.created_at.desc()).all()
+    return render_template("admin/messages.html", messages=messages)
+
+@app.route("/admin/message/<int:message_id>/respond", methods=["GET", "POST"])
+@admin_required
+def respond_to_message(message_id):
+    """Admin responds to a user message."""
+    message = AdminMessage.query.get(message_id)
+    if not message:
+        flash("Message not found.", "danger")
+        return redirect(url_for('admin_messages'))
+    
+    form = AdminMessageForm()
+    if form.validate_on_submit():
+        message.admin_response = form.message.data
+        message.admin_response_date = datetime.utcnow()
+        message.is_read = True
+        db.session.commit()
+        flash("Response sent to user.", "success")
+        return redirect(url_for('admin_messages'))
+    
+    message.is_read = True
+    db.session.commit()
+    return render_template("admin/respond_message.html", message=message, form=form)
+
+@app.route("/user/messages")
+@login_required
+def user_messages():
+    """View all messages sent to/from the admin for the current user."""
+    user_id = session.get("user_id")
+    messages = AdminMessage.query.filter_by(user_id=user_id).order_by(AdminMessage.created_at.desc()).all()
+    return render_template("user_messages.html", messages=messages)
+
+@app.route("/user/send-message", methods=["GET", "POST"])
+@login_required
+def send_user_message():
+    """User sends a message to admin."""
+    form = UserMessageForm()
+    if form.validate_on_submit():
+        user_id = session.get("user_id")
+        message = AdminMessage(
+            user_id=user_id,
+            subject=form.subject.data,
+            message=form.message.data,
+            message_type=form.message_type.data
+        )
+        db.session.add(message)
+        db.session.commit()
+        flash("Your message has been sent to the admin.", "success")
+        return redirect(url_for('user_messages'))
+    
+    return render_template("send_user_message.html", form=form)
 

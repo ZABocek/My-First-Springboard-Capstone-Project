@@ -92,14 +92,29 @@
                                             </td>
                                             <td>
                                                 {% if user.id != session.user_id %}
-                                                    {% if not user.is_admin %}
-                                                        <form method="POST" action="{{ url_for('promote_user', user_id=user.id) }}" style="display: inline;">
-                                                            <button type="submit" class="btn btn-sm btn-success" onclick="return confirm('Promote {{ user.username }} to admin?')">Promote</button>
-                                                        </form>
+                                                    {% if user.is_permanently_banned %}
+                                                        <span class="badge bg-dark">Permanently Banned</span>
+                                                    {% elif user.ban_until and user.ban_until > now %}
+                                                        <span class="badge bg-warning text-dark">Banned until {{ user.ban_until.strftime('%Y-%m-%d') }}</span>
                                                     {% else %}
-                                                        <form method="POST" action="{{ url_for('demote_user', user_id=user.id) }}" style="display: inline;">
-                                                            <button type="submit" class="btn btn-sm btn-warning" onclick="return confirm('Demote {{ user.username }} from admin?')">Demote</button>
-                                                        </form>
+                                                        {% if not user.is_admin %}
+                                                            <form method="POST" action="{{ url_for('promote_user', user_id=user.id) }}" style="display: inline;">
+                                                                <button type="submit" class="btn btn-sm btn-success" onclick="return confirm('Promote {{ user.username }} to admin?')">Promote</button>
+                                                            </form>
+                                                            <form method="POST" action="{{ url_for('ban_user', user_id=user.id) }}" style="display: inline;">
+                                                                <button type="submit" class="btn btn-sm btn-warning" onclick="return confirm('Ban {{ user.username }} for one year?')">Ban 1yr</button>
+                                                            </form>
+                                                            <form method="POST" action="{{ url_for('delete_user', user_id=user.id) }}" style="display: inline;">
+                                                                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Delete {{ user.username }}? This cannot be undone.')">Delete</button>
+                                                            </form>
+                                                        {% else %}
+                                                            <form method="POST" action="{{ url_for('demote_user', user_id=user.id) }}" style="display: inline;">
+                                                                <button type="submit" class="btn btn-sm btn-warning" onclick="return confirm('Demote {{ user.username }} from admin?')">Demote</button>
+                                                            </form>
+                                                            <form method="POST" action="{{ url_for('ban_user_permanently', user_id=user.id) }}" style="display: inline;">
+                                                                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Permanently ban {{ user.username }}? They cannot return.')">Ban Permanently</button>
+                                                            </form>
+                                                        {% endif %}
                                                     {% endif %}
                                                 {% else %}
                                                     <span class="badge bg-info">You</span>
@@ -139,6 +154,7 @@
     <div class="row mt-5">
         <div class="col-md-12">
             <a href="{{ url_for('homepage') }}" class="btn btn-primary">Back to Home</a>
+            <a href="{{ url_for('admin_messages') }}" class="btn btn-info">View User Messages</a>
         </div>
     </div>
 </div>

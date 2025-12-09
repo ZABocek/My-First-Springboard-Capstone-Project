@@ -103,3 +103,30 @@ class EditCocktailForm(FlaskForm):
     # Text area field for cocktail instructions
     submit = SubmitField('Update Cocktail')
     # Submit button for updating the cocktail
+
+# Define a form for users to send messages to admin
+class UserMessageForm(FlaskForm):
+    """Form for users to send messages/reports to admin."""
+    message_type = SelectField('Message Type', choices=[
+        ('suggestion', 'Suggestion'),
+        ('bug_report', 'Bug Report'),
+        ('incident_report', 'Incident Report')
+    ], validators=[DataRequired()])
+    # Select field for message type
+    subject = StringField('Subject', validators=[DataRequired(), Length(min=5, max=255)])
+    # Subject field with length validation
+    message = TextAreaField('Message', validators=[DataRequired(), Length(min=10, max=5000)])
+    # Text area for the message content
+    submit = SubmitField('Send Message')
+    # Submit button for sending the message
+
+# Define a form for admin to send messages to users
+class AdminMessageForm(FlaskForm):
+    """Form for admin to send messages/warnings to users."""
+    subject = StringField('Subject', validators=[DataRequired(), Length(min=5, max=255)])
+    # Subject field with length validation
+    message = TextAreaField('Message', validators=[DataRequired(), Length(min=10, max=5000)])
+    # Text area for the message content
+    submit = SubmitField('Send Message')
+    # Submit button for sending the message
+

@@ -1,5 +1,6 @@
 from flask_bcrypt import Bcrypt
 from flask_sqlalchemy import SQLAlchemy
+from datetime import datetime, timedelta
 import logging
 
 # Initialize Bcrypt for hashing passwords
@@ -54,6 +55,27 @@ class User(db.Model):
         nullable=False,
         default=False
     )
+    
+    ban_until = db.Column(
+        db.DateTime,
+        nullable=True,
+        default=None
+    )
+    
+    is_permanently_banned = db.Column(
+        db.Boolean,
+        nullable=False,
+        default=False
+    )
+    
+    created_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        default=datetime.utcnow
+    )
+    
+    # Relationship to admin messages
+    admin_messages = db.relationship('AdminMessage', foreign_keys='AdminMessage.user_id', backref='user', cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<User #{self.id}: {self.username}, {self.email}>"
@@ -223,3 +245,62 @@ class UserFavoriteIngredients(db.Model):
         db.ForeignKey('ingredient.id'),
         primary_key=True
     )
+
+class AdminMessage(db.Model):
+    """Messages between admin and users for warnings, suggestions, and incident reports"""
+    __tablename__ = "admin_message"
+    
+    id = db.Column(
+        db.Integer,
+        primary_key=True,
+        autoincrement=True,
+    )
+    
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey('user.id'),
+        nullable=False,
+    )
+    
+    subject = db.Column(
+        db.String(255),
+        nullable=False,
+    )
+    
+    message = db.Column(
+        db.Text,
+        nullable=False,
+    )
+    
+    message_type = db.Column(
+        db.String(50),
+        nullable=False,
+        default='user_report'
+    )
+    
+    created_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        default=datetime.utcnow
+    )
+    
+    is_read = db.Column(
+        db.Boolean,
+        nullable=False,
+        default=False
+    )
+    
+    admin_response = db.Column(
+        db.Text,
+        nullable=True,
+        default=None
+    )
+    
+    admin_response_date = db.Column(
+        db.DateTime,
+        nullable=True,
+        default=None
+    )
+    
+    def __repr__(self):
+        return f"<AdminMessage #{self.id}: from {self.user_id} - {self.subject}>"
