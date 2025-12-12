@@ -130,3 +130,13 @@ class AdminMessageForm(FlaskForm):
     submit = SubmitField('Send Message')
     # Submit button for sending the message
 
+# Define a form for banned users to appeal their ban
+class AppealForm(FlaskForm):
+    """Form for banned users to submit an appeal requesting ban removal."""
+    appeal_text = TextAreaField('Appeal Statement', validators=[
+        DataRequired(message='Please provide details for your appeal'),
+        Length(min=50, max=3000, message='Appeal must be between 50 and 3000 characters')
+    ])
+    # Text area for the appeal with minimum and maximum length validation
+    submit = SubmitField('Submit Appeal')
+    # Submit button for submitting the appeal

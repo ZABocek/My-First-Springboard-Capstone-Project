@@ -2,6 +2,8 @@
 from flask import current_app as app, Flask, render_template, redirect, send_from_directory, send_file, session, flash, url_for, request
 # Import CSRF protection for Flask forms
 from flask_wtf.csrf import CSRFProtect
+# Import Flask-Mail for sending emails
+from flask_mail import Mail, Message
 # Import ThreadPoolExecutor for concurrent tasks
 from concurrent.futures import ThreadPoolExecutor
 # Import requests for making HTTP requests
@@ -15,11 +17,13 @@ from werkzeug.datastructures import FileStorage
 # Import DebugToolbarExtension for debugging purposes
 from flask_debugtoolbar import DebugToolbarExtension
 # Import security configuration and secrets
-from config import SECRET_KEY, ADMIN_PASSWORD_KEY, SESSION_COOKIE_HTTPONLY, SESSION_COOKIE_SAMESITE, SECURE_SSL_REDIRECT
+from config import SECRET_KEY, ADMIN_PASSWORD_KEY, SESSION_COOKIE_HTTPONLY, SESSION_COOKIE_SAMESITE, SECURE_SSL_REDIRECT, MAIL_SERVER, MAIL_PORT, MAIL_USE_TLS, MAIL_USE_SSL, MAIL_USERNAME, MAIL_PASSWORD, MAIL_DEFAULT_SENDER
 # Import models for the database
-from models import db, connect_db, User, UserFavoriteIngredients, Ingredient, Cocktails_Users, Cocktail, Cocktails_Ingredients, AdminMessage
+from models import db, connect_db, User, UserFavoriteIngredients, Ingredient, Cocktails_Users, Cocktail, Cocktails_Ingredients, AdminMessage, UserAppeal
 # Import forms for user input
-from forms import RegisterForm, OriginalCocktailForm, IngredientForm, EditCocktailForm, LoginForm, PreferenceForm, UserFavoriteIngredientForm, ListCocktailsForm, AdminForm, UserMessageForm, AdminMessageForm
+from forms import RegisterForm, OriginalCocktailForm, IngredientForm, EditCocktailForm, LoginForm, PreferenceForm, UserFavoriteIngredientForm, ListCocktailsForm, AdminForm, UserMessageForm, AdminMessageForm, AppealForm
+# Import email utility functions
+from helpers import generate_ban_appeal_email, generate_ban_lifted_email
 # Import functions to interact with the cocktail API
 from cocktaildb_api import list_ingredients, get_cocktail_detail, get_combined_cocktails_list, lookup_cocktail, get_random_cocktail, fetch_and_prepare_cocktails
 # Import os for interacting with the operating system
@@ -70,6 +74,16 @@ toolbar = DebugToolbarExtension(app)
 app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = False
 # Set up CSRF protection for Flask
 csrf = CSRFProtect(app)
+
+# Set up Flask-Mail configuration
+app.config['MAIL_SERVER'] = MAIL_SERVER
+app.config['MAIL_PORT'] = MAIL_PORT
+app.config['MAIL_USE_TLS'] = MAIL_USE_TLS
+app.config['MAIL_USE_SSL'] = MAIL_USE_SSL
+app.config['MAIL_USERNAME'] = MAIL_USERNAME
+app.config['MAIL_PASSWORD'] = MAIL_PASSWORD
+app.config['MAIL_DEFAULT_SENDER'] = MAIL_DEFAULT_SENDER
+mail = Mail(app)
 
 # Connect the Flask app to the database
 connect_db(app)
@@ -949,6 +963,20 @@ def ban_user(user_id):
     # Ban for one year
     user.ban_until = datetime.utcnow() + timedelta(days=365)
     db.session.commit()
+    
+    # Send appeal notification email
+    try:
+        appeal_link = url_for('submit_appeal', _external=True)
+        email_body = generate_ban_appeal_email(user.username, appeal_link)
+        msg = Message(
+            subject='Account Suspension Notice - Appeal Process Available',
+            body=email_body,
+            recipients=[user.email]
+        )
+        mail.send(msg)
+    except Exception as e:
+        print(f"Error sending ban notification email: {e}")
+    
     flash(f"User {user.username} has been banned for one year.", "warning")
     return redirect(url_for('admin_panel'))
 
@@ -972,6 +1000,20 @@ def ban_user_permanently(user_id):
     
     user.is_permanently_banned = True
     db.session.commit()
+    
+    # Send appeal notification email
+    try:
+        appeal_link = url_for('submit_appeal', _external=True)
+        email_body = generate_ban_appeal_email(user.username, appeal_link)
+        msg = Message(
+            subject='Permanent Account Suspension Notice - Appeal Process Available',
+            body=email_body,
+            recipients=[user.email]
+        )
+        mail.send(msg)
+    except Exception as e:
+        print(f"Error sending permanent ban notification email: {e}")
+    
     flash(f"User {user.username} has been permanently banned.", "danger")
     return redirect(url_for('admin_panel'))
 
@@ -1056,3 +1098,142 @@ def send_user_message():
     
     return render_template("send_user_message.html", form=form)
 
+@app.route("/appeal", methods=["GET", "POST"])
+def submit_appeal():
+    """Submit an appeal for a ban."""
+    user_id = session.get("user_id")
+    
+    if not user_id:
+        flash("You must be logged in to submit an appeal.", "warning")
+        return redirect(url_for('login'))
+    
+    user = User.query.get(user_id)
+    
+    if not user:
+        flash("User not found.", "danger")
+        return redirect(url_for('login'))
+    
+    # Check if user is banned
+    if not (user.is_permanently_banned or (user.ban_until and user.ban_until > datetime.utcnow())):
+        flash("Your account is not currently banned.", "info")
+        return redirect(url_for('index'))
+    
+    # Check if user already has a pending appeal
+    existing_appeal = UserAppeal.query.filter_by(user_id=user_id, status='pending').first()
+    if existing_appeal:
+        flash("You already have a pending appeal. Please wait for a response.", "info")
+        return redirect(url_for('index'))
+    
+    form = AppealForm()
+    if form.validate_on_submit():
+        appeal = UserAppeal(
+            user_id=user_id,
+            appeal_text=form.appeal_text.data,
+            status='pending'
+        )
+        db.session.add(appeal)
+        db.session.commit()
+        flash("Your appeal has been submitted. Our admin team will review it shortly.", "success")
+        return redirect(url_for('index'))
+    
+    return render_template("users/appeal.html", form=form, user=user)
+
+@app.route("/admin/appeal/<int:appeal_id>/approve", methods=["POST"])
+@admin_required
+def approve_appeal(appeal_id):
+    """Admin approves a ban appeal and lifts the ban."""
+    current_user = User.query.get(session.get("user_id"))
+    if not current_user or not current_user.is_admin:
+        flash("You do not have permission to perform this action.", "danger")
+        return redirect(url_for('admin_panel'))
+    
+    appeal = UserAppeal.query.get(appeal_id)
+    if not appeal:
+        flash("Appeal not found.", "danger")
+        return redirect(url_for('admin_panel'))
+    
+    user = User.query.get(appeal.user_id)
+    if not user:
+        flash("User not found.", "danger")
+        return redirect(url_for('admin_panel'))
+    
+    # Lift the ban
+    user.ban_until = None
+    user.is_permanently_banned = False
+    appeal.status = 'approved'
+    appeal.admin_response_date = datetime.utcnow()
+    db.session.commit()
+    
+    # Send ban lifted email
+    try:
+        email_body = generate_ban_lifted_email(user.username)
+        msg = Message(
+            subject='Your Account Suspension Has Been Lifted',
+            body=email_body,
+            recipients=[user.email]
+        )
+        mail.send(msg)
+    except Exception as e:
+        print(f"Error sending ban lifted email: {e}")
+    
+    flash(f"Appeal approved. Ban lifted for user {user.username}.", "success")
+    return redirect(url_for('admin_panel'))
+
+@app.route("/admin/appeal/<int:appeal_id>/reject", methods=["POST"])
+@admin_required
+def reject_appeal(appeal_id):
+    """Admin rejects a ban appeal."""
+    current_user = User.query.get(session.get("user_id"))
+    if not current_user or not current_user.is_admin:
+        flash("You do not have permission to perform this action.", "danger")
+        return redirect(url_for('admin_panel'))
+    
+    appeal = UserAppeal.query.get(appeal_id)
+    if not appeal:
+        flash("Appeal not found.", "danger")
+        return redirect(url_for('admin_panel'))
+    
+    appeal.status = 'rejected'
+    appeal.admin_response_date = datetime.utcnow()
+    db.session.commit()
+    
+    flash("Appeal rejected.", "warning")
+    return redirect(url_for('admin_panel'))
+
+@app.route("/admin/user/<int:user_id>/remove-ban", methods=["POST"])
+@admin_required
+def remove_user_ban(user_id):
+    """Admin removes a ban from a user."""
+    current_user = User.query.get(session.get("user_id"))
+    if not current_user or not current_user.is_admin:
+        flash("You do not have permission to perform this action.", "danger")
+        return redirect(url_for('admin_panel'))
+    
+    if user_id == current_user.id:
+        flash("You cannot remove your own ban.", "warning")
+        return redirect(url_for('admin_panel'))
+    
+    user = User.query.get(user_id)
+    if not user:
+        flash("User not found.", "danger")
+        return redirect(url_for('admin_panel'))
+    
+    # Remove the ban
+    user.ban_until = None
+    user.is_permanently_banned = False
+    db.session.commit()
+    
+    # Send ban lifted email
+    try:
+        email_body = generate_ban_lifted_email(user.username)
+        msg = Message(
+            subject='Your Account Suspension Has Been Lifted',
+            body=email_body,
+            recipients=[user.email]
+        )
+        mail.send(msg)
+    except Exception as e:
+        print(f"Error sending ban lifted email: {e}")
+    
+    flash(f"Ban lifted for user {user.username}.", "success")
+    return redirect(url_for('admin_panel'))

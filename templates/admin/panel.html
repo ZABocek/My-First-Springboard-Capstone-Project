@@ -94,8 +94,14 @@
                                                 {% if user.id != session.user_id %}
                                                     {% if user.is_permanently_banned %}
                                                         <span class="badge bg-dark">Permanently Banned</span>
+                                                        <form method="POST" action="{{ url_for('remove_user_ban', user_id=user.id) }}" style="display: inline;">
+                                                            <button type="submit" class="btn btn-sm btn-info" onclick="return confirm('Remove permanent ban for {{ user.username }}?')">Remove Ban</button>
+                                                        </form>
                                                     {% elif user.ban_until and user.ban_until > now %}
                                                         <span class="badge bg-warning text-dark">Banned until {{ user.ban_until.strftime('%Y-%m-%d') }}</span>
+                                                        <form method="POST" action="{{ url_for('remove_user_ban', user_id=user.id) }}" style="display: inline;">
+                                                            <button type="submit" class="btn btn-sm btn-info" onclick="return confirm('Remove ban for {{ user.username }}?')">Remove Ban</button>
+                                                        </form>
                                                     {% else %}
                                                         {% if not user.is_admin %}
                                                             <form method="POST" action="{{ url_for('promote_user', user_id=user.id) }}" style="display: inline;">

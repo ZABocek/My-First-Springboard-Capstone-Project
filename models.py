@@ -304,3 +304,50 @@ class AdminMessage(db.Model):
     
     def __repr__(self):
         return f"<AdminMessage #{self.id}: from {self.user_id} - {self.subject}>"
+class UserAppeal(db.Model):
+    """Appeals submitted by banned users requesting removal of their ban"""
+    __tablename__ = "user_appeal"
+    
+    id = db.Column(
+        db.Integer,
+        primary_key=True,
+        autoincrement=True,
+    )
+    
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey('user.id'),
+        nullable=False,
+    )
+    
+    appeal_text = db.Column(
+        db.Text,
+        nullable=False,
+    )
+    
+    created_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        default=datetime.utcnow
+    )
+    
+    status = db.Column(
+        db.String(50),
+        nullable=False,
+        default='pending'  # pending, approved, rejected
+    )
+    
+    admin_response = db.Column(
+        db.Text,
+        nullable=True,
+        default=None
+    )
+    
+    admin_response_date = db.Column(
+        db.DateTime,
+        nullable=True,
+        default=None
+    )
+    
+    def __repr__(self):
+        return f"<UserAppeal #{self.id}: from {self.user_id} - {self.status}>"
