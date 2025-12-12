@@ -103,11 +103,11 @@ The Cocktail Chronicles Admin Team
 def generate_email_verification_email(username, verification_link):
     """Generate email verification email with verification link."""
     email_body = f"""
-Welcome to 'Name Your Poison', your ultimate guide for making delicious cocktails!
+Welcome to 'Cocktail Chronicles', your ultimate guide for making delicious cocktails!
 
 Hello {username},
 
-Thank you for signing up for Name Your Poison! We're thrilled to have you join our community of cocktail enthusiasts.
+Thank you for signing up for Cocktail Chronicles! We're thrilled to have you join our community of cocktail enthusiasts.
 
 To complete your registration and unlock all the features of our app, we need to verify that you own this email address. 
 It's just a formality, but please verify your email address by following this link:
@@ -128,18 +128,18 @@ If you did not create this account, please ignore this email.
 Let the mixology begin!
 
 Best regards,
-The Name Your Poison Team
+The Cocktail Chronicles Team
     """.strip()
     return email_body
 
 def generate_email_resend_verification_email(username, verification_link):
     """Generate email for resending verification link."""
     email_body = f"""
-Email Verification Link - Name Your Poison
+Email Verification Link - Cocktail Chronicles
 
 Hello {username},
 
-We've generated a new email verification link for your Name Your Poison account. 
+We've generated a new email verification link for your Cocktail Chronicles account. 
 Please verify your email address by following this link:
 
 {verification_link}
@@ -149,7 +149,7 @@ This link will expire in 24 hours.
 If you did not request this email, please ignore it.
 
 Best regards,
-The Name Your Poison Team
+The Cocktail Chronicles Team
     """.strip()
     return email_body
 

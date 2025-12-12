@@ -198,7 +198,7 @@ def register():
             
             # Create and send the email
             msg = Message(
-                subject="Verify Your Email - Name Your Poison",
+                subject="Verify Your Email - Cocktail Chronicles",
                 recipients=[email],
                 body=email_body
             )
@@ -282,7 +282,7 @@ def resend_verification(user_id):
         
         # Create and send the email
         msg = Message(
-            subject="Verify Your Email - Name Your Poison (Resend)",
+            subject="Verify Your Email - Cocktail Chronicles (Resend)",
             recipients=[user.email],
             body=email_body
         )
