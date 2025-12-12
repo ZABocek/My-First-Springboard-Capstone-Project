@@ -23,7 +23,7 @@ from models import db, connect_db, User, UserFavoriteIngredients, Ingredient, Co
 # Import forms for user input
 from forms import RegisterForm, OriginalCocktailForm, IngredientForm, EditCocktailForm, LoginForm, PreferenceForm, UserFavoriteIngredientForm, ListCocktailsForm, AdminForm, UserMessageForm, AdminMessageForm, AppealForm
 # Import email utility functions
-from helpers import generate_ban_appeal_email, generate_ban_lifted_email
+from helpers import generate_ban_appeal_email, generate_ban_lifted_email, generate_email_verification_email, generate_email_resend_verification_email
 # Import functions to interact with the cocktail API
 from cocktaildb_api import list_ingredients, get_cocktail_detail, get_combined_cocktails_list, lookup_cocktail, get_random_cocktail, fetch_and_prepare_cocktails
 # Import os for interacting with the operating system
@@ -32,6 +32,8 @@ import os
 from functools import wraps
 # Import datetime for ban tracking
 from datetime import datetime, timedelta
+# Import logging for error tracking
+import logging
 
 # Initialize the Flask application
 app = Flask(__name__)
@@ -185,13 +187,114 @@ def register():
         db.session.add(user)
         # Commit the new user to the database
         db.session.commit()
-        # Store the user's ID in the session
-        session["user_id"] = user.id
-        # Redirect to the homepage
-        return redirect(url_for('homepage'))
+        
+        # Generate email verification token
+        try:
+            verification_token = user.generate_email_verification_token()
+            verification_link = url_for('verify_email', token=verification_token, _external=True)
+            
+            # Generate the verification email body
+            email_body = generate_email_verification_email(username, verification_link)
+            
+            # Create and send the email
+            msg = Message(
+                subject="Verify Your Email - Name Your Poison",
+                recipients=[email],
+                body=email_body
+            )
+            mail.send(msg)
+            
+            # Flash success message and redirect to a pending verification page
+            flash(f"Registration successful! A verification email has been sent to {email}. Please check your email to verify your account.", "info")
+            return redirect(url_for('verification_pending', user_id=user.id))
+        except Exception as e:
+            logging.error(f"Error sending verification email: {e}")
+            # Delete the user if email sending fails
+            db.session.delete(user)
+            db.session.commit()
+            flash("Error sending verification email. Please try again.", "error")
+            return redirect('/register')
     
     # Render the registration template with the form
     return render_template("/users/register.html", form=form)
+
+@app.route('/verify-email/<token>')
+def verify_email(token):
+    """Verify user's email address using the token."""
+    try:
+        # Verify the token and get the email
+        email = User.verify_email_token(token)
+        
+        if not email:
+            flash("The verification link is invalid or has expired. Please try again.", "danger")
+            return redirect(url_for('login'))
+        
+        # Find the user with this email
+        user = User.query.filter_by(email=email).first()
+        
+        if not user:
+            flash("User not found. Please register again.", "danger")
+            return redirect(url_for('register'))
+        
+        if user.is_email_verified:
+            flash("Your email is already verified. You can now log in.", "info")
+            return redirect(url_for('login'))
+        
+        # Mark the email as verified
+        user.mark_email_verified()
+        
+        flash("Email verified successfully! You can now log in to your account.", "success")
+        return redirect(url_for('login'))
+    
+    except Exception as e:
+        logging.error(f"Error verifying email: {e}")
+        flash("An error occurred while verifying your email. Please try again.", "danger")
+        return redirect(url_for('login'))
+
+@app.route('/verification-pending/<int:user_id>')
+def verification_pending(user_id):
+    """Show a message that verification email was sent."""
+    try:
+        user = User.query.get_or_404(user_id)
+        return render_template('users/verification_pending.html', user=user)
+    except Exception as e:
+        logging.error(f"Error loading verification pending page: {e}")
+        flash("An error occurred. Please try again.", "danger")
+        return redirect(url_for('register'))
+
+@app.route('/resend-verification/<int:user_id>', methods=['GET', 'POST'])
+def resend_verification(user_id):
+    """Resend verification email to the user."""
+    try:
+        user = User.query.get_or_404(user_id)
+        
+        # Check if user is already verified
+        if user.is_email_verified:
+            flash("Your email is already verified. You can log in.", "info")
+            return redirect(url_for('login'))
+        
+        # Generate new verification token
+        verification_token = user.generate_email_verification_token()
+        verification_link = url_for('verify_email', token=verification_token, _external=True)
+        
+        # Generate the verification email body
+        email_body = generate_email_resend_verification_email(user.username, verification_link)
+        
+        # Create and send the email
+        msg = Message(
+            subject="Verify Your Email - Name Your Poison (Resend)",
+            recipients=[user.email],
+            body=email_body
+        )
+        mail.send(msg)
+        
+        flash(f"A new verification email has been sent to {user.email}.", "success")
+        return redirect(url_for('verification_pending', user_id=user.id))
+    
+    except Exception as e:
+        logging.error(f"Error resending verification email: {e}")
+        flash("Error sending verification email. Please try again.", "error")
+        return redirect(url_for('verification_pending', user_id=user_id))
 
 @app.route('/users/profile/<int:user_id>', methods=['GET', 'POST'])
 def profile(user_id):
@@ -819,6 +922,11 @@ def login():
         user = User.authenticate(name, pwd)
 
         if user:
+            # Check if the user's email is verified
+            if not user.is_email_verified:
+                flash(f"Please verify your email address first. Check your inbox for the verification link. <a href='{url_for('resend_verification', user_id=user.id)}'>Resend verification email</a>", "warning")
+                return redirect(url_for('login'))
+            
             # If authentication is successful, store the user's ID in the session and redirect to the homepage
             session["user_id"] = user.id  
             return redirect(url_for('homepage'))

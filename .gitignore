@@ -2,6 +2,17 @@
 .env
 .env.local
 .env.*.local
+.env.production
+.env.development
+
+# Security - DO NOT COMMIT
+api_keys.py
+config.py
+secrets/
+*secret*
+*password*
+*key*
+*token*
 
 # Database
 *.db
@@ -52,6 +63,7 @@ htmlcov/
 # Flask
 instance/
 .webassets-cache
+instance/mail/
 
 # Debug toolbar
 flask_debugtoolbar/

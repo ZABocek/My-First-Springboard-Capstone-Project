@@ -1,7 +1,8 @@
 from flask_bcrypt import Bcrypt
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import logging
+from itsdangerous import URLSafeTimedSerializer
 
 # Initialize Bcrypt for hashing passwords
 bcrypt = Bcrypt()
@@ -16,6 +17,9 @@ def connect_db(app):
     db.app = app
     # Initialize the app with SQLAlchemy
     db.init_app(app)
+    # Store app context for token generation
+    global token_serializer
+    token_serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 
 class User(db.Model):
     """User in the system."""
@@ -74,6 +78,18 @@ class User(db.Model):
         default=datetime.utcnow
     )
     
+    is_email_verified = db.Column(
+        db.Boolean,
+        nullable=False,
+        default=False
+    )
+    
+    email_verified_at = db.Column(
+        db.DateTime,
+        nullable=True,
+        default=None
+    )
+    
     # Relationship to admin messages
     admin_messages = db.relationship('AdminMessage', foreign_keys='AdminMessage.user_id', backref='user', cascade="all, delete-orphan")
     
@@ -109,6 +125,36 @@ class User(db.Model):
                 return user
 
         return False
+    
+    def generate_email_verification_token(self, expires_in=86400):
+        """Generate a token for email verification that expires in 24 hours by default."""
+        try:
+            return token_serializer.dumps(self.email, salt='email-verification')
+        except Exception as e:
+            logging.error(f"Error generating email verification token: {e}")
+            raise
+    
+    @staticmethod
+    def verify_email_token(token, expires_in=86400):
+        """Verify the email verification token and return the email if valid."""
+        try:
+            email = token_serializer.loads(token, salt='email-verification', max_age=expires_in)
+            return email
+        except Exception as e:
+            logging.error(f"Error verifying email token: {e}")
+            return None
+    
+    def mark_email_verified(self):
+        """Mark the user's email as verified."""
+        try:
+            self.is_email_verified = True
+            self.email_verified_at = datetime.now(timezone.utc)
+            db.session.commit()
+            logging.debug(f"Email verified for user: {self}")
+        except Exception as e:
+            logging.error(f"Error marking email as verified: {e}")
+            db.session.rollback()
+            raise
     
     def add_preference(self, preference):
         """Add preference to the user"""
