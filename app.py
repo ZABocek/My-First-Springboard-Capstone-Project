@@ -575,9 +575,11 @@ def add_original_cocktails():
     form = OriginalCocktailForm()
     # Check if the form is valid upon submission
     if form.validate_on_submit():
-        # Filter out empty ingredients and measures
-        ingredients = [i for i in form.ingredients.data if i]
-        measures = [m for m in form.measures.data if m]
+        # Filter out ingredient-measure pairs where either ingredient or measure is empty
+        filtered_ingredients = [
+            (i, m) for i, m in zip(form.ingredients.data, form.measures.data) 
+            if i and m
+        ]
 
         # Save the cocktail details to the database
         new_cocktail = Cocktail(name=form.name.data, instructions=form.instructions.data)
@@ -591,8 +593,8 @@ def add_original_cocktails():
         db.session.add(relation)
         db.session.commit()
 
-        # Loop through the ingredients and measures and add them to the database
-        for ingredient, measure in zip(form.ingredients.data, form.measures.data):
+        # Loop through the filtered ingredients and measures and add them to the database
+        for ingredient, measure in filtered_ingredients:
             ingredient_obj = Ingredient.query.filter_by(name=ingredient).first()
             if not ingredient_obj:
                 ingredient_obj = Ingredient(name=ingredient)
