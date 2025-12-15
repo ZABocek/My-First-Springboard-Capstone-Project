@@ -1,0 +1,249 @@
+/* Global Styles */
+
+body {
+    font-family: 'Helvetica Neue', sans-serif;
+    background-color: #f2f2f2;
+    background-image: url('https://unsplash.com/photos/wine-bar-Kzq3JphxXiA');
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    color: #333;
+  }
+  
+  .container {
+    background-color: rgba(255, 255, 255, 0.8);
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+  }
+  
+  /* Navigation Bar */
+  
+  .navbar {
+    background-color: #292b2c;
+    color: #fff;
+  }
+  
+  .navbar-brand {
+    font-size: 24px;
+  }
+  
+  .navbar-nav .nav-link {
+    color: #fff;
+  }
+  
+  .navbar-nav .nav-link:hover {
+    color: #ffc107; /* Yellow for hover effect */
+  }
+  
+  /* Homepage Styles */
+  
+  .display-4 {
+    color: #fff;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  }
+  
+  .mt-5 {
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+  }
+  
+  .btn-info {
+    background-color: #17a2b8;
+    border-color: #17a2b8;
+  }
+  
+  .btn-success {
+    background-color: #28a745;
+    border-color: #28a745;
+  }
+  
+  .btn-info:hover,
+  .btn-success:hover {
+    background-color: #138496;
+    border-color: #138496;
+  }
+  
+  /* Other Page Styles */
+  
+  .alert-danger {
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+    color: #721c24;
+  }
+  
+  .alert-danger a {
+    color: #721c24;
+    text-decoration: underline;
+  }
+  
+  /* Add API Cocktails Page Styles */
+  
+  .add_api_cocktails {
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+  }
+  
+  /* Add Original Cocktails Page Styles */
+  
+  .add_original_cocktails {
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+  }
+  
+  #ingredient-fields {
+    margin-top: 10px;
+  }
+  
+  /* My Cocktails Page Styles */
+  
+  .my_cocktails {
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+  }
+  
+  .my_cocktails h3 {
+    color: #333;
+  }
+  
+  .my_cocktails img {
+    max-width: 100%;
+    height: auto;
+    margin-top: 10px;
+  }
+  
+  /* Edit My Cocktails Page Styles */
+  
+  .edit_my_cocktails {
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+  }
+  
+  /* Profile Page Styles */
+  
+  .profile {
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+  }
+  
+  /* Cocktails List Page Styles */
+  
+  .list_cocktails {
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+  }
+
+  /* Admin Panel Page Styles */
+
+  .admin_panel {
+    background-color: rgba(255, 255, 255, 0.9);
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+  }
+
+  .admin_panel h1 {
+    color: #333;
+    margin-bottom: 10px;
+    font-weight: bold;
+  }
+
+  .admin_panel .card {
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    margin-bottom: 20px;
+  }
+
+  .admin_panel .card-header {
+    font-weight: bold;
+    padding: 15px;
+  }
+
+  .admin_panel .card-body {
+    padding: 20px;
+  }
+
+  .admin_panel .table {
+    margin-bottom: 0;
+  }
+
+  .admin_panel .table thead th {
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    color: #333;
+  }
+
+  .admin_panel .table tbody tr:hover {
+    background-color: #f5f5f5;
+  }
+
+  .admin_panel .badge {
+    padding: 5px 10px;
+    font-size: 0.85rem;
+  }
+
+  .admin_panel .btn {
+    margin: 0 2px;
+  }
+
+  /* Admin Unlock Page Styles */
+
+  .admin_unlock {
+    background-color: rgba(255, 255, 255, 0.9);
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+  }
+
+  .admin_unlock .card {
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  }
+
+  .admin_unlock .card-header {
+    font-weight: bold;
+    padding: 20px;
+  }
+
+  .admin_unlock .card-body {
+    padding: 30px;
+  }
+
+  .admin_unlock .form-label {
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: #333;
+  }
+
+  .admin_unlock .form-control {
+    border-radius: 5px;
+    border: 1px solid #ddd;
+    padding: 10px 15px;
+  }
+
+  .admin_unlock .form-control:focus {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+  }
+
+  .admin_unlock .btn {
+    padding: 10px 20px;
+    font-weight: 600;
+  }
+  

@@ -8,6 +8,14 @@ from wtforms import StringField, PasswordField, SelectField, FieldList, TextArea
 from wtforms.validators import DataRequired, Email, InputRequired, Length, EqualTo, Optional
 # Import validators to enforce rules on form fields
 
+# Define a form for admin panel unlock
+class AdminForm(FlaskForm):
+    """Form for unlocking the admin panel."""
+    admin_key = PasswordField("Admin Password Key", validators=[DataRequired()])
+    # Password field for the admin unlock key
+    submit = SubmitField('Unlock Admin Panel')
+    # Submit button for unlocking the admin panel
+
 # Define a form for user registration
 class RegisterForm(FlaskForm):
     """Form for registering a user."""
@@ -74,10 +82,10 @@ class OriginalCocktailForm(FlaskForm):
     # File field for uploading an image with allowed file type validation
     name = StringField('Cocktail Name', validators=[DataRequired()])
     # String field for cocktail name with data required validation
-    ingredients = FieldList(StringField('Ingredient', validators=[DataRequired()]), min_entries=1, max_entries=10)
-    # Field list for multiple ingredient fields
-    measures = FieldList(StringField('Measure', validators=[DataRequired()]), min_entries=1, max_entries=10)
-    # Field list for multiple measure fields
+    ingredients = FieldList(StringField('Ingredient', validators=[Optional()]), min_entries=1, max_entries=10)
+    # Field list for multiple ingredient fields (Optional allows blank entries)
+    measures = FieldList(StringField('Measure', validators=[Optional()]), min_entries=1, max_entries=10)
+    # Field list for multiple measure fields (Optional allows blank entries)
     instructions = TextAreaField('Instructions', validators=[DataRequired()])
     # Text area field for cocktail instructions
     submit = SubmitField('Add Original Cocktail')
@@ -95,3 +103,40 @@ class EditCocktailForm(FlaskForm):
     # Text area field for cocktail instructions
     submit = SubmitField('Update Cocktail')
     # Submit button for updating the cocktail
+
+# Define a form for users to send messages to admin
+class UserMessageForm(FlaskForm):
+    """Form for users to send messages/reports to admin."""
+    message_type = SelectField('Message Type', choices=[
+        ('suggestion', 'Suggestion'),
+        ('bug_report', 'Bug Report'),
+        ('incident_report', 'Incident Report')
+    ], validators=[DataRequired()])
+    # Select field for message type
+    subject = StringField('Subject', validators=[DataRequired(), Length(min=5, max=255)])
+    # Subject field with length validation
+    message = TextAreaField('Message', validators=[DataRequired(), Length(min=10, max=5000)])
+    # Text area for the message content
+    submit = SubmitField('Send Message')
+    # Submit button for sending the message
+
+# Define a form for admin to send messages to users
+class AdminMessageForm(FlaskForm):
+    """Form for admin to send messages/warnings to users."""
+    subject = StringField('Subject', validators=[DataRequired(), Length(min=5, max=255)])
+    # Subject field with length validation
+    message = TextAreaField('Message', validators=[DataRequired(), Length(min=10, max=5000)])
+    # Text area for the message content
+    submit = SubmitField('Send Message')
+    # Submit button for sending the message
+
+# Define a form for banned users to appeal their ban
+class AppealForm(FlaskForm):
+    """Form for banned users to submit an appeal requesting ban removal."""
+    appeal_text = TextAreaField('Appeal Statement', validators=[
+        DataRequired(message='Please provide details for your appeal'),
+        Length(min=50, max=3000, message='Appeal must be between 50 and 3000 characters')
+    ])
+    # Text area for the appeal with minimum and maximum length validation
+    submit = SubmitField('Submit Appeal')
+    # Submit button for submitting the appeal

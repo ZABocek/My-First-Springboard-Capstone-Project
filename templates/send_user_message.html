@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <h1 class="display-4">Send Message to Admin</h1>
+            <p class="text-muted">Have a suggestion, found a bug, or need to report an incident? Let us know!</p>
+            <hr>
+        </div>
+    </div>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">New Message Form</h3>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        {{ form.hidden_tag() }}
+                        
+                        <div class="mb-3">
+                            {{ form.message_type.label(class="form-label") }}
+                            {{ form.message_type(class="form-select") }}
+                            <small class="form-text text-muted d-block mt-1">
+                                <strong>Suggestion:</strong> Share ideas for improving the app<br>
+                                <strong>Bug Report:</strong> Report technical issues or errors<br>
+                                <strong>Incident Report:</strong> Report inappropriate behavior or other concerns
+                            </small>
+                            {% if form.message_type.errors %}
+                                {% for error in form.message_type.errors %}
+                                    <div class="text-danger small mt-1">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            {{ form.subject.label(class="form-label") }}
+                            {{ form.subject(class="form-control", placeholder="Brief subject of your message") }}
+                            {% if form.subject.errors %}
+                                {% for error in form.subject.errors %}
+                                    <div class="text-danger small mt-1">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            {{ form.message.label(class="form-label") }}
+                            {{ form.message(class="form-control", rows="8", placeholder="Please provide details about your message. The more information you provide, the better we can assist you.") }}
+                            {% if form.message.errors %}
+                                {% for error in form.message.errors %}
+                                    <div class="text-danger small mt-1">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                        
+                        <div class="d-flex gap-2">
+                            {{ form.submit(class="btn btn-primary btn-lg") }}
+                            <a href="{{ url_for('user_messages') }}" class="btn btn-secondary btn-lg">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="alert alert-info mt-4">
+                <h5>Important Information:</h5>
+                <ul class="mb-0">
+                    <li>All messages are reviewed by the admin</li>
+                    <li>Responses will be provided as soon as possible</li>
+                    <li>For urgent issues, please include relevant details and context</li>
+                    <li>All reports are treated seriously and will be investigated</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Back Button -->
+    <div class="row mt-5">
+        <div class="col-md-12">
+            <a href="{{ url_for('user_messages') }}" class="btn btn-primary">Back to Messages</a>
+        </div>
+    </div>
+</div>
+
+<style>
+    .card {
+        border: none;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    }
+</style>
+{% endblock %}

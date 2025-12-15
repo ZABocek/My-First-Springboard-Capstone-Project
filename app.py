@@ -2,6 +2,8 @@
 from flask import current_app as app, Flask, render_template, redirect, send_from_directory, send_file, session, flash, url_for, request
 # Import CSRF protection for Flask forms
 from flask_wtf.csrf import CSRFProtect
+# Import Flask-Mail for sending emails
+from flask_mail import Mail, Message
 # Import ThreadPoolExecutor for concurrent tasks
 from concurrent.futures import ThreadPoolExecutor
 # Import requests for making HTTP requests
@@ -14,16 +16,24 @@ from werkzeug.utils import secure_filename
 from werkzeug.datastructures import FileStorage
 # Import DebugToolbarExtension for debugging purposes
 from flask_debugtoolbar import DebugToolbarExtension
-# Import the secret key for session management
-from config import SECRET_KEY
+# Import security configuration and secrets
+from config import SECRET_KEY, ADMIN_PASSWORD_KEY, SESSION_COOKIE_HTTPONLY, SESSION_COOKIE_SAMESITE, SECURE_SSL_REDIRECT, MAIL_SERVER, MAIL_PORT, MAIL_USE_TLS, MAIL_USE_SSL, MAIL_USERNAME, MAIL_PASSWORD, MAIL_DEFAULT_SENDER
 # Import models for the database
-from models import db, connect_db, User, UserFavoriteIngredients, Ingredient, Cocktails_Users, Cocktail, Cocktails_Ingredients
+from models import db, connect_db, User, UserFavoriteIngredients, Ingredient, Cocktails_Users, Cocktail, Cocktails_Ingredients, AdminMessage, UserAppeal
 # Import forms for user input
-from forms import RegisterForm, OriginalCocktailForm, IngredientForm, EditCocktailForm, LoginForm, PreferenceForm, UserFavoriteIngredientForm, ListCocktailsForm
+from forms import RegisterForm, OriginalCocktailForm, IngredientForm, EditCocktailForm, LoginForm, PreferenceForm, UserFavoriteIngredientForm, ListCocktailsForm, AdminForm, UserMessageForm, AdminMessageForm, AppealForm
+# Import email utility functions
+from helpers import generate_ban_appeal_email, generate_ban_lifted_email, generate_email_verification_email, generate_email_resend_verification_email
 # Import functions to interact with the cocktail API
 from cocktaildb_api import list_ingredients, get_cocktail_detail, get_combined_cocktails_list, lookup_cocktail, get_random_cocktail, fetch_and_prepare_cocktails
 # Import os for interacting with the operating system
 import os
+# Import functools for creating decorators
+from functools import wraps
+# Import datetime for ban tracking
+from datetime import datetime, timedelta
+# Import logging for error tracking
+import logging
 
 # Initialize the Flask application
 app = Flask(__name__)
@@ -35,16 +45,30 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 # Configure the upload destination for Flask
 app.config['UPLOADED_PHOTOS_DEST'] = UPLOADED_PHOTOS_DEST
 
-# Set the secret key for session management
+# Set the secret key for session management and CSRF protection
 app.config['SECRET_KEY'] = SECRET_KEY
-# Disable debug mode
-app.config['DEBUG'] = False
+# Enable debug mode for development
+app.config['DEBUG'] = True
 # Set the database URI for SQLAlchemy
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql:///name_your_poison')
+# Use SQLite for development/testing, PostgreSQL for production
+default_db_uri = os.environ.get('DATABASE_URL', 'sqlite:///cocktails.db')
+if default_db_uri.startswith('postgresql://'):
+    # PostgreSQL URL format
+    app.config['SQLALCHEMY_DATABASE_URI'] = default_db_uri
+else:
+    # Use SQLite if DATABASE_URL is not set or doesn't start with postgresql://
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///cocktails.db'
 # Disable track modifications for SQLAlchemy
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 # Enable echo for SQLAlchemy to log SQL queries
 app.config["SQLALCHEMY_ECHO"] = True
+
+# Security configuration for sessions
+app.config['SESSION_COOKIE_SECURE'] = SESSION_COOKIE_HTTPONLY  # HTTPS only in production
+app.config['SESSION_COOKIE_HTTPONLY'] = SESSION_COOKIE_HTTPONLY  # No JS access to cookies
+app.config['SESSION_COOKIE_SAMESITE'] = SESSION_COOKIE_SAMESITE  # CSRF protection
+app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # Session expires after 1 hour of inactivity
+app.config['SESSION_REFRESH_EACH_REQUEST'] = True  # Refresh session on each request
 
 # Set up the debug toolbar for Flask
 toolbar = DebugToolbarExtension(app)
@@ -53,20 +77,78 @@ app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = False
 # Set up CSRF protection for Flask
 csrf = CSRFProtect(app)
 
+# Set up Flask-Mail configuration
+app.config['MAIL_SERVER'] = MAIL_SERVER
+app.config['MAIL_PORT'] = MAIL_PORT
+app.config['MAIL_USE_TLS'] = MAIL_USE_TLS
+app.config['MAIL_USE_SSL'] = MAIL_USE_SSL
+app.config['MAIL_USERNAME'] = MAIL_USERNAME
+app.config['MAIL_PASSWORD'] = MAIL_PASSWORD
+app.config['MAIL_DEFAULT_SENDER'] = MAIL_DEFAULT_SENDER
+mail = Mail(app)
+
 # Connect the Flask app to the database
 connect_db(app)
 
-with app.app_context():
-    # Create the database schema within the app context
-    db.drop_all()
-    # Drop all existing database tables
-    db.create_all()
-    # Create all database tables
+# Initialize the database schema (will be called separately for testing/development)
+def init_db():
+    """Initialize the database schema."""
+    with app.app_context():
+        try:
+            # Drop all existing tables to ensure schema matches models
+            db.drop_all()
+            # Create all tables with the current schema
+            db.create_all()
+            print("Database initialized successfully")
+        except Exception as e:
+            print(f"Error initializing database: {e}")
 
 # Initialize a ThreadPoolExecutor for concurrent tasks
 executor = ThreadPoolExecutor()
 # Define the base URL for the cocktail API
 BASE_URL = "https://www.thecocktaildb.com/api/json/v1/1"
+
+# ===== SECURITY DECORATORS AND MIDDLEWARE =====
+
+def login_required(f):
+    """Decorator to require user to be logged in."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if "user_id" not in session:
+            flash("You must be logged in to access this page.", "danger")
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+def admin_required(f):
+    """Decorator to require user to be an admin."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if "user_id" not in session:
+            flash("You must be logged in to access this page.", "danger")
+            return redirect(url_for('login'))
+        
+        user = User.query.get(session["user_id"])
+        if not user or not user.is_admin:
+            flash("You do not have permission to access this page. Admin access required.", "danger")
+            return redirect(url_for('homepage'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+@app.after_request
+def add_security_headers(response):
+    """Add security headers to all responses."""
+    # Prevent clickjacking attacks
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    # Prevent MIME sniffing
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    # Enable XSS protection
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    # Control referrer information
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    # Control permissions
+    response.headers['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
+    return response
 
 @app.route("/")
 def homepage():
@@ -105,13 +187,114 @@ def register():
         db.session.add(user)
         # Commit the new user to the database
         db.session.commit()
-        # Store the user's ID in the session
-        session["user_id"] = user.id
-        # Redirect to the homepage
-        return redirect(url_for('homepage'))
+        
+        # Generate email verification token
+        try:
+            verification_token = user.generate_email_verification_token()
+            verification_link = url_for('verify_email', token=verification_token, _external=True)
+            
+            # Generate the verification email body
+            email_body = generate_email_verification_email(username, verification_link)
+            
+            # Create and send the email
+            msg = Message(
+                subject="Verify Your Email - Cocktail Chronicles",
+                recipients=[email],
+                body=email_body
+            )
+            mail.send(msg)
+            
+            # Flash success message and redirect to a pending verification page
+            flash(f"Registration successful! A verification email has been sent to {email}. Please check your email to verify your account.", "info")
+            return redirect(url_for('verification_pending', user_id=user.id))
+        except Exception as e:
+            logging.error(f"Error sending verification email: {e}")
+            # Delete the user if email sending fails
+            db.session.delete(user)
+            db.session.commit()
+            flash("Error sending verification email. Please try again.", "error")
+            return redirect('/register')
     
     # Render the registration template with the form
     return render_template("/users/register.html", form=form)
+
+@app.route('/verify-email/<token>')
+def verify_email(token):
+    """Verify user's email address using the token."""
+    try:
+        # Verify the token and get the email
+        email = User.verify_email_token(token)
+        
+        if not email:
+            flash("The verification link is invalid or has expired. Please try again.", "danger")
+            return redirect(url_for('login'))
+        
+        # Find the user with this email
+        user = User.query.filter_by(email=email).first()
+        
+        if not user:
+            flash("User not found. Please register again.", "danger")
+            return redirect(url_for('register'))
+        
+        if user.is_email_verified:
+            flash("Your email is already verified. You can now log in.", "info")
+            return redirect(url_for('login'))
+        
+        # Mark the email as verified
+        user.mark_email_verified()
+        
+        flash("Email verified successfully! You can now log in to your account.", "success")
+        return redirect(url_for('login'))
+    
+    except Exception as e:
+        logging.error(f"Error verifying email: {e}")
+        flash("An error occurred while verifying your email. Please try again.", "danger")
+        return redirect(url_for('login'))
+
+@app.route('/verification-pending/<int:user_id>')
+def verification_pending(user_id):
+    """Show a message that verification email was sent."""
+    try:
+        user = User.query.get_or_404(user_id)
+        return render_template('users/verification_pending.html', user=user)
+    except Exception as e:
+        logging.error(f"Error loading verification pending page: {e}")
+        flash("An error occurred. Please try again.", "danger")
+        return redirect(url_for('register'))
+
+@app.route('/resend-verification/<int:user_id>', methods=['GET', 'POST'])
+def resend_verification(user_id):
+    """Resend verification email to the user."""
+    try:
+        user = User.query.get_or_404(user_id)
+        
+        # Check if user is already verified
+        if user.is_email_verified:
+            flash("Your email is already verified. You can log in.", "info")
+            return redirect(url_for('login'))
+        
+        # Generate new verification token
+        verification_token = user.generate_email_verification_token()
+        verification_link = url_for('verify_email', token=verification_token, _external=True)
+        
+        # Generate the verification email body
+        email_body = generate_email_resend_verification_email(user.username, verification_link)
+        
+        # Create and send the email
+        msg = Message(
+            subject="Verify Your Email - Cocktail Chronicles (Resend)",
+            recipients=[user.email],
+            body=email_body
+        )
+        mail.send(msg)
+        
+        flash(f"A new verification email has been sent to {user.email}.", "success")
+        return redirect(url_for('verification_pending', user_id=user.id))
+    
+    except Exception as e:
+        logging.error(f"Error resending verification email: {e}")
+        flash("Error sending verification email. Please try again.", "error")
+        return redirect(url_for('verification_pending', user_id=user_id))
 
 @app.route('/users/profile/<int:user_id>', methods=['GET', 'POST'])
 def profile(user_id):
@@ -185,10 +368,34 @@ def profile(user_id):
                     db.session.rollback()
                     flash('Failed to add ingredient!', 'danger')
 
-    # Get the user's favorite ingredients
-    user_favorite_ingredients = [i.ingredient for i in user.user_favorite_ingredients]
+    # Get the user's favorite ingredients with their IDs
+    user_favorite_ingredients = [(i.ingredient.id, i.ingredient.name) for i in user.user_favorite_ingredients]
     # Render the profile template with the user, preference form, ingredient form, and favorite ingredients
     return render_template('/users/profile.html', user=user, preference_form=preference_form, ingredient_form=ingredient_form, user_favorite_ingredients=user_favorite_ingredients)
+
+@app.route('/delete-favorite-ingredient/<int:user_id>/<int:ingredient_id>', methods=['POST'])
+def delete_favorite_ingredient(user_id, ingredient_id):
+    """Delete a favorite ingredient from user's profile"""
+    # Check if user is logged in and matches the user_id
+    if 'user_id' not in session or session.get('user_id') != user_id:
+        flash('You do not have permission to delete this ingredient.', 'danger')
+        return redirect(url_for('profile', user_id=user_id))
+    
+    try:
+        # Find and delete the favorite ingredient relationship
+        favorite = UserFavoriteIngredients.query.filter_by(user_id=user_id, ingredient_id=ingredient_id).first()
+        if favorite:
+            db.session.delete(favorite)
+            db.session.commit()
+            flash('Ingredient deleted successfully!', 'success')
+        else:
+            flash('Ingredient not found.', 'danger')
+    except Exception as e:
+        app.logger.error(f"Failed to delete favorite ingredient: {e}")
+        db.session.rollback()
+        flash('Failed to delete ingredient!', 'danger')
+    
+    return redirect(url_for('profile', user_id=user_id))
 
 @app.route('/cocktails', methods=['GET', 'POST'])
 def list_cocktails():
@@ -246,7 +453,7 @@ def cocktail_details(cocktail_id):
     return render_template('cocktail_details.html', cocktail=cocktail, user_id=user_id)
 
 @app.route('/add_api_cocktails', methods=['GET', 'POST'])
-async def add_api_cocktails():
+def add_api_cocktails():
     """Add API cocktails to user's account"""
     # Check if the user is logged in
     if 'user_id' not in session:
@@ -258,8 +465,13 @@ async def add_api_cocktails():
     # Get the user_id from the session
     user_id = session.get('user_id')
 
-    # Get the list of cocktails from the API
-    cocktails = await get_combined_cocktails_list()
+    # Get the list of cocktails from the API using asyncio
+    try:
+        cocktails = asyncio.run(get_combined_cocktails_list())
+    except Exception as e:
+        print(f"Error fetching cocktails: {e}")
+        cocktails = None
+    
     if cocktails:
         # Populate the cocktail choices from the API data
         form.cocktail.choices = [(c[0], c[1]) for c in cocktails]
@@ -299,6 +511,10 @@ def my_cocktails():
 
     # Get the user from the database by their ID
     user = User.query.get(user_id)
+    if not user:
+        flash('User not found.', 'danger')
+        return redirect(url_for('login'))
+    
     # Get the cocktail_id from the query parameters
     cocktail_id = request.args.get('cocktail_id')
 
@@ -342,7 +558,11 @@ def my_cocktails():
         if hasattr(cocktail, 'image_url') and cocktail.image_url:
             detail['strDrinkThumb'] = url_for('uploaded_file', filename=cocktail.image_url)
         elif hasattr(cocktail, 'strDrinkThumb') and cocktail.strDrinkThumb:
-            detail['strDrinkThumb'] = cocktail.strDrinkThumb
+            # If it's just a filename (user-edited), convert to URL; if it's a URL, use as-is
+            if cocktail.strDrinkThumb.startswith('http'):
+                detail['strDrinkThumb'] = cocktail.strDrinkThumb
+            else:
+                detail['strDrinkThumb'] = url_for('uploaded_file', filename=cocktail.strDrinkThumb)
 
         cocktail_details.append(detail)
 
@@ -352,36 +572,100 @@ def my_cocktails():
     # Render the my_cocktails template with the cocktail details
     return render_template('my_cocktails.html', cocktails=cocktail_details)
 
+@app.route('/delete-cocktail/<int:cocktail_id>', methods=['POST'])
+def delete_cocktail(cocktail_id):
+    """Delete a cocktail from the user's account"""
+    # Get the user_id from the session
+    user_id = session.get('user_id')
+    if not user_id:
+        flash('You must be logged in to delete cocktails!', 'danger')
+        return redirect(url_for('login'))
+    
+    # Get the user from the database
+    user = User.query.get(user_id)
+    if not user:
+        flash('User not found.', 'danger')
+        return redirect(url_for('login'))
+    
+    # Get the cocktail from the database
+    cocktail = Cocktail.query.get(cocktail_id)
+    if not cocktail:
+        flash('Cocktail not found.', 'danger')
+        return redirect(url_for('my_cocktails'))
+    
+    # Check if the cocktail belongs to the user
+    user_cocktails = [relation.cocktails for relation in user.cocktails_relation]
+    if cocktail not in user_cocktails:
+        flash('You do not have permission to delete this cocktail.', 'danger')
+        return redirect(url_for('my_cocktails'))
+    
+    try:
+        # Remove the cocktail from the user's collection
+        cocktails_user_relation = Cocktails_Users.query.filter_by(user_id=user_id, cocktail_id=cocktail_id).first()
+        if cocktails_user_relation:
+            db.session.delete(cocktails_user_relation)
+            db.session.commit()
+            
+            # Only delete the cocktail if it's user-created (not from API)
+            if not cocktail.is_api_cocktail:
+                # Check if any other users have this cocktail
+                other_users = Cocktails_Users.query.filter_by(cocktail_id=cocktail_id).count()
+                if other_users == 0:
+                    # If no other users have this cocktail, delete it from the database
+                    db.session.delete(cocktail)
+                    db.session.commit()
+            
+            flash('Cocktail deleted successfully!', 'success')
+        else:
+            flash('Cocktail not found in your collection.', 'danger')
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting cocktail: {e}")
+        flash('Failed to delete cocktail. Please try again.', 'danger')
+    
+    return redirect(url_for('my_cocktails'))
+
 def process_and_store_new_cocktail(cocktail_api, user_id):
     """Helper function that assists in adding API cocktail to user's account"""
     try:
-        # Create a new cocktail object
-        new_cocktail = Cocktail(
-            name=cocktail_api['strDrink'],
-            instructions=cocktail_api['strInstructions'],
-            strDrinkThumb=cocktail_api.get('strDrinkThumb')  # Save the strDrinkThumb from the API
-        )
-        # Save the new cocktail to the database
-        db.session.add(new_cocktail)
-        db.session.commit()
+        # Always check if the API cocktail exists
+        existing_cocktail = Cocktail.query.filter_by(name=cocktail_api['strDrink'], is_api_cocktail=True).first()
+        
+        if existing_cocktail:
+            # If API cocktail already exists, just add the user relationship
+            new_cocktail = existing_cocktail
+        else:
+            # Create a new API cocktail object
+            new_cocktail = Cocktail(
+                name=cocktail_api['strDrink'],
+                instructions=cocktail_api['strInstructions'],
+                strDrinkThumb=cocktail_api.get('strDrinkThumb'),
+                is_api_cocktail=True  # Mark this as an API cocktail
+            )
+            # Save the new cocktail to the database
+            db.session.add(new_cocktail)
+            db.session.commit()
 
-        # Loop through the ingredients from the API response
-        for i in range(1, 16):  # Since there can be up to 15 ingredients in the API
-            ingredient_name = cocktail_api.get(f'strIngredient{i}')
-            measure = cocktail_api.get(f'strMeasure{i}')
+            # Loop through the ingredients from the API response
+            for i in range(1, 16):  # Since there can be up to 15 ingredients in the API
+                ingredient_name = cocktail_api.get(f'strIngredient{i}')
+                measure = cocktail_api.get(f'strMeasure{i}')
 
-            if ingredient_name:  # If there's an ingredient name
-                ingredient_obj = store_or_get_ingredient(ingredient_name)  # Another function to simplify ingredient handling
+                if ingredient_name:  # If there's an ingredient name
+                    ingredient_obj = store_or_get_ingredient(ingredient_name)  # Another function to simplify ingredient handling
 
-                # Add to the Cocktails_Ingredients table
-                ci_entry = Cocktails_Ingredients(cocktail_id=new_cocktail.id, ingredient_id=ingredient_obj.id, quantity=measure)
-                db.session.add(ci_entry)
-                db.session.commit()
+                    # Add to the Cocktails_Ingredients table
+                    ci_entry = Cocktails_Ingredients(cocktail_id=new_cocktail.id, ingredient_id=ingredient_obj.id, quantity=measure)
+                    db.session.add(ci_entry)
+                    db.session.commit()
 
-        # Add relation between user and the new cocktail
-        relation = Cocktails_Users(user_id=user_id, cocktail_id=new_cocktail.id)
-        db.session.add(relation)
-        db.session.commit()
+        # Add relation between user and the cocktail (whether new or existing)
+        existing_relation = Cocktails_Users.query.filter_by(user_id=user_id, cocktail_id=new_cocktail.id).first()
+        if not existing_relation:
+            # Only add if the user doesn't already have this cocktail
+            relation = Cocktails_Users(user_id=user_id, cocktail_id=new_cocktail.id)
+            db.session.add(relation)
+            db.session.commit()
 
     except Exception as e:
         # If an error occurs, log the error and rollback the database session
@@ -408,9 +692,11 @@ def add_original_cocktails():
     form = OriginalCocktailForm()
     # Check if the form is valid upon submission
     if form.validate_on_submit():
-        # Filter out empty ingredients and measures
-        ingredients = [i for i in form.ingredients.data if i]
-        measures = [m for m in form.measures.data if m]
+        # Filter out ingredient-measure pairs where either ingredient or measure is empty
+        filtered_ingredients = [
+            (i, m) for i, m in zip(form.ingredients.data, form.measures.data) 
+            if i and m
+        ]
 
         # Save the cocktail details to the database
         new_cocktail = Cocktail(name=form.name.data, instructions=form.instructions.data)
@@ -424,8 +710,8 @@ def add_original_cocktails():
         db.session.add(relation)
         db.session.commit()
 
-        # Loop through the ingredients and measures and add them to the database
-        for ingredient, measure in zip(form.ingredients.data, form.measures.data):
+        # Loop through the filtered ingredients and measures and add them to the database
+        for ingredient, measure in filtered_ingredients:
             ingredient_obj = Ingredient.query.filter_by(name=ingredient).first()
             if not ingredient_obj:
                 ingredient_obj = Ingredient(name=ingredient)
@@ -435,21 +721,41 @@ def add_original_cocktails():
             db.session.add(ci_entry)
             db.session.commit()
             
-        # Optionally, save the image if it was provided
-        cocktail_name = form.name.data
-        cocktail = {"strDrink": cocktail_name, "strInstructions": form.instructions.data, "strDrinkThumb": None}
+        # Handle image upload - THIS IS THE CRITICAL PART
         image = form.image.data
+        print(f"DEBUG: Image data = {image}")
+        print(f"DEBUG: Image filename = {image.filename if image else 'None'}")
+        
         if image and image.filename:
-            filename = secure_filename(image.filename)
-            filepath = os.path.join(app.config['UPLOADED_PHOTOS_DEST'], filename)
-            image.save(filepath)
-            cocktail["strDrinkThumb"] = url_for('uploaded_file', filename=filename)
-            new_cocktail.image_url = filename
-            db.session.commit()
+            try:
+                filename = secure_filename(image.filename)
+                print(f"DEBUG: Secured filename = {filename}")
+                
+                # Create absolute path to uploads directory
+                uploads_dir = os.path.join(os.path.dirname(__file__), app.config['UPLOADED_PHOTOS_DEST'])
+                print(f"DEBUG: Uploads dir = {uploads_dir}")
+                
+                os.makedirs(uploads_dir, exist_ok=True)  # Ensure directory exists
+                filepath = os.path.join(uploads_dir, filename)
+                print(f"DEBUG: Full filepath = {filepath}")
+                
+                image.save(filepath)
+                print(f"DEBUG: Image saved successfully!")
+                
+                new_cocktail.image_url = filename  # Store just the filename
+                db.session.commit()
+                print(f"DEBUG: Database updated with image_url = {filename}")
+            except Exception as e:
+                print(f"DEBUG: ERROR saving image: {e}")
+                flash(f'Error uploading image: {str(e)}', 'danger')
 
         # Flash a success message and redirect to the user's cocktails page
         flash('Successfully added your original cocktail!', 'success')
         return redirect(url_for('my_cocktails'))
+    else:
+        # Print form errors for debugging
+        if request.method == 'POST':
+            print(f"DEBUG: Form validation failed. Errors: {form.errors}")
 
     # Render the add_original_cocktails template with the form
     return render_template('add_original_cocktails.html', form=form)
@@ -467,8 +773,57 @@ def edit_cocktail(cocktail_id):
         flash('You must be logged in to edit cocktails!', 'danger')
         return redirect(url_for('login'))
 
+    user_id = session.get('user_id')
+    
     # Retrieve the cocktail the user wants to edit
-    cocktail = Cocktail.query.get_or_404(cocktail_id)
+    original_cocktail = Cocktail.query.get_or_404(cocktail_id)
+    
+    # If this is an API cocktail, create a user copy for editing
+    if original_cocktail.is_api_cocktail:
+        # Check if user already has a personal copy of this API cocktail
+        user_copy = Cocktail.query.filter_by(
+            name=original_cocktail.name, 
+            is_api_cocktail=False
+        ).first()
+        
+        if not user_copy:
+            # Create a new user-created copy of the API cocktail
+            user_copy = Cocktail(
+                name=original_cocktail.name,
+                instructions=original_cocktail.instructions,
+                strDrinkThumb=original_cocktail.strDrinkThumb,
+                image_url=original_cocktail.image_url,
+                is_api_cocktail=False  # Mark as user-created
+            )
+            db.session.add(user_copy)
+            db.session.flush()  # Get the ID without committing yet
+            
+            # Copy ingredients from the API cocktail
+            for ci in original_cocktail.ingredients_relation:
+                new_ci = Cocktails_Ingredients(
+                    cocktail_id=user_copy.id,
+                    ingredient_id=ci.ingredient_id,
+                    quantity=ci.quantity
+                )
+                db.session.add(new_ci)
+            
+            db.session.commit()
+        
+        # Remove user from API cocktail and add to user copy
+        api_relation = Cocktails_Users.query.filter_by(user_id=user_id, cocktail_id=original_cocktail.id).first()
+        if api_relation:
+            db.session.delete(api_relation)
+            db.session.commit()
+        
+        copy_relation = Cocktails_Users.query.filter_by(user_id=user_id, cocktail_id=user_copy.id).first()
+        if not copy_relation:
+            copy_relation = Cocktails_Users(user_id=user_id, cocktail_id=user_copy.id)
+            db.session.add(copy_relation)
+            db.session.commit()
+        
+        cocktail = user_copy
+    else:
+        cocktail = original_cocktail
 
     # Create and process the form for editing cocktails
     form = EditCocktailForm(obj=cocktail)  # Create an EditCocktailForm similar to the OriginalCocktailForm
@@ -485,9 +840,15 @@ def edit_cocktail(cocktail_id):
         image = form.image.data
         if image and image.filename:
             filename = secure_filename(image.filename)
-            filepath = os.path.join(app.config['UPLOADED_PHOTOS_DEST'], filename)
+            # Create absolute path to uploads directory
+            uploads_dir = os.path.join(os.path.dirname(__file__), app.config['UPLOADED_PHOTOS_DEST'])
+            os.makedirs(uploads_dir, exist_ok=True)  # Ensure directory exists
+            filepath = os.path.join(uploads_dir, filename)
             image.save(filepath)
-            cocktail.strDrinkThumb = filepath  # Update the image URL
+            # Store just the filename, not the full path
+            cocktail.strDrinkThumb = filename
+            # Clear image_url since we're using strDrinkThumb for this edit
+            cocktail.image_url = None
 
         # Handle the ingredients
         new_ingredients = form.ingredients.data  # Get the new ingredients from the form
@@ -561,6 +922,11 @@ def login():
         user = User.authenticate(name, pwd)
 
         if user:
+            # Check if the user's email is verified
+            if not user.is_email_verified:
+                flash(f"Please verify your email address first. Check your inbox for the verification link. <a href='{url_for('resend_verification', user_id=user.id)}'>Resend verification email</a>", "warning")
+                return redirect(url_for('login'))
+            
             # If authentication is successful, store the user's ID in the session and redirect to the homepage
             session["user_id"] = user.id  
             return redirect(url_for('homepage'))
@@ -578,3 +944,404 @@ def logout():
     session.pop("user_id")
     # Redirect to the login page
     return redirect("/login")
+
+@app.route("/admin/unlock", methods=["GET", "POST"])
+def admin_unlock():
+    """Admin unlock page - requires admin password key."""
+    # If already an admin, redirect to admin panel
+    if "user_id" in session:
+        user = User.query.get(session["user_id"])
+        if user and user.is_admin:
+            return redirect(url_for('admin_panel'))
+    
+    # Create an instance of the AdminForm
+    form = AdminForm()
+    
+    if form.validate_on_submit():
+        # Get the admin password key from the form
+        provided_key = form.admin_key.data
+        
+        # Verify the key matches the one in config
+        if provided_key == ADMIN_PASSWORD_KEY:
+            # If user is logged in, mark them as admin
+            if "user_id" in session:
+                user = User.query.get(session["user_id"])
+                if user:
+                    user.is_admin = True
+                    db.session.commit()
+                    flash("Admin access granted!", "success")
+                    return redirect(url_for('admin_panel'))
+            else:
+                flash("You must be logged in to access the admin panel.", "danger")
+        else:
+            flash("Invalid admin password key.", "danger")
+    
+    return render_template("admin/unlock.html", form=form)
+
+@app.route("/admin/panel")
+@admin_required
+def admin_panel():
+    """Admin panel for managing the application."""
+    # Get statistics
+    total_users = User.query.count()
+    total_cocktails = Cocktail.query.count()
+    total_api_cocktails = Cocktail.query.filter_by(is_api_cocktail=True).count()
+    total_user_cocktails = Cocktail.query.filter_by(is_api_cocktail=False).count()
+    
+    # Get all users
+    users = User.query.all()
+    
+    stats = {
+        'total_users': total_users,
+        'total_cocktails': total_cocktails,
+        'total_api_cocktails': total_api_cocktails,
+        'total_user_cocktails': total_user_cocktails
+    }
+    
+    return render_template("admin/panel.html", stats=stats, users=users, now=datetime.utcnow())
+
+@app.route("/admin/user/<int:user_id>/promote", methods=["POST"])
+@admin_required
+def promote_user(user_id):
+    """Promote a user to admin status."""
+    # Current user must be admin
+    current_user = User.query.get(session.get("user_id"))
+    if not current_user or not current_user.is_admin:
+        flash("You do not have permission to perform this action.", "danger")
+        return redirect(url_for('admin_panel'))
+    
+    # Can't promote yourself
+    if user_id == current_user.id:
+        flash("You cannot promote yourself.", "warning")
+        return redirect(url_for('admin_panel'))
+    
+    user = User.query.get(user_id)
+    if not user:
+        flash("User not found.", "danger")
+        return redirect(url_for('admin_panel'))
+    
+    user.is_admin = True
+    db.session.commit()
+    flash(f"User {user.username} promoted to admin.", "success")
+    return redirect(url_for('admin_panel'))
+
+@app.route("/admin/user/<int:user_id>/demote", methods=["POST"])
+@admin_required
+def demote_user(user_id):
+    """Demote a user from admin status."""
+    # Current user must be admin
+    current_user = User.query.get(session.get("user_id"))
+    if not current_user or not current_user.is_admin:
+        flash("You do not have permission to perform this action.", "danger")
+        return redirect(url_for('admin_panel'))
+    
+    # Can't demote yourself
+    if user_id == current_user.id:
+        flash("You cannot demote yourself.", "warning")
+        return redirect(url_for('admin_panel'))
+    
+    user = User.query.get(user_id)
+    if not user:
+        flash("User not found.", "danger")
+        return redirect(url_for('admin_panel'))
+    
+    user.is_admin = False
+    db.session.commit()
+    flash(f"User {user.username} demoted from admin.", "success")
+    return redirect(url_for('admin_panel'))
+
+@app.route("/admin/user/<int:user_id>/ban", methods=["POST"])
+@admin_required
+def ban_user(user_id):
+    """Ban a user for one year."""
+    current_user = User.query.get(session.get("user_id"))
+    if not current_user or not current_user.is_admin:
+        flash("You do not have permission to perform this action.", "danger")
+        return redirect(url_for('admin_panel'))
+    
+    if user_id == current_user.id:
+        flash("You cannot ban yourself.", "warning")
+        return redirect(url_for('admin_panel'))
+    
+    user = User.query.get(user_id)
+    if not user:
+        flash("User not found.", "danger")
+        return redirect(url_for('admin_panel'))
+    
+    # Ban for one year
+    user.ban_until = datetime.utcnow() + timedelta(days=365)
+    db.session.commit()
+    
+    # Send appeal notification email
+    try:
+        appeal_link = url_for('submit_appeal', _external=True)
+        email_body = generate_ban_appeal_email(user.username, appeal_link)
+        msg = Message(
+            subject='Account Suspension Notice - Appeal Process Available',
+            body=email_body,
+            recipients=[user.email]
+        )
+        mail.send(msg)
+    except Exception as e:
+        print(f"Error sending ban notification email: {e}")
+    
+    flash(f"User {user.username} has been banned for one year.", "warning")
+    return redirect(url_for('admin_panel'))
+
+@app.route("/admin/user/<int:user_id>/ban-permanent", methods=["POST"])
+@admin_required
+def ban_user_permanently(user_id):
+    """Permanently ban a user."""
+    current_user = User.query.get(session.get("user_id"))
+    if not current_user or not current_user.is_admin:
+        flash("You do not have permission to perform this action.", "danger")
+        return redirect(url_for('admin_panel'))
+    
+    if user_id == current_user.id:
+        flash("You cannot ban yourself.", "warning")
+        return redirect(url_for('admin_panel'))
+    
+    user = User.query.get(user_id)
+    if not user:
+        flash("User not found.", "danger")
+        return redirect(url_for('admin_panel'))
+    
+    user.is_permanently_banned = True
+    db.session.commit()
+    
+    # Send appeal notification email
+    try:
+        appeal_link = url_for('submit_appeal', _external=True)
+        email_body = generate_ban_appeal_email(user.username, appeal_link)
+        msg = Message(
+            subject='Permanent Account Suspension Notice - Appeal Process Available',
+            body=email_body,
+            recipients=[user.email]
+        )
+        mail.send(msg)
+    except Exception as e:
+        print(f"Error sending permanent ban notification email: {e}")
+    
+    flash(f"User {user.username} has been permanently banned.", "danger")
+    return redirect(url_for('admin_panel'))
+
+@app.route("/admin/user/<int:user_id>/delete", methods=["POST"])
+@admin_required
+def delete_user(user_id):
+    """Delete a user from the system."""
+    current_user = User.query.get(session.get("user_id"))
+    if not current_user or not current_user.is_admin:
+        flash("You do not have permission to perform this action.", "danger")
+        return redirect(url_for('admin_panel'))
+    
+    if user_id == current_user.id:
+        flash("You cannot delete yourself.", "warning")
+        return redirect(url_for('admin_panel'))
+    
+    user = User.query.get(user_id)
+    if not user:
+        flash("User not found.", "danger")
+        return redirect(url_for('admin_panel'))
+    
+    username = user.username
+    db.session.delete(user)
+    db.session.commit()
+    flash(f"User {username} has been deleted from the system.", "success")
+    return redirect(url_for('admin_panel'))
+
+@app.route("/admin/messages")
+@admin_required
+def admin_messages():
+    """View all user messages for the admin."""
+    messages = AdminMessage.query.order_by(AdminMessage.created_at.desc()).all()
+    return render_template("admin/messages.html", messages=messages)
+
+@app.route("/admin/message/<int:message_id>/respond", methods=["GET", "POST"])
+@admin_required
+def respond_to_message(message_id):
+    """Admin responds to a user message."""
+    message = AdminMessage.query.get(message_id)
+    if not message:
+        flash("Message not found.", "danger")
+        return redirect(url_for('admin_messages'))
+    
+    form = AdminMessageForm()
+    if form.validate_on_submit():
+        message.admin_response = form.message.data
+        message.admin_response_date = datetime.utcnow()
+        message.is_read = True
+        db.session.commit()
+        flash("Response sent to user.", "success")
+        return redirect(url_for('admin_messages'))
+    
+    message.is_read = True
+    db.session.commit()
+    return render_template("admin/respond_message.html", message=message, form=form)
+
+@app.route("/user/messages")
+@login_required
+def user_messages():
+    """View all messages sent to/from the admin for the current user."""
+    user_id = session.get("user_id")
+    messages = AdminMessage.query.filter_by(user_id=user_id).order_by(AdminMessage.created_at.desc()).all()
+    return render_template("user_messages.html", messages=messages)
+
+@app.route("/user/send-message", methods=["GET", "POST"])
+@login_required
+def send_user_message():
+    """User sends a message to admin."""
+    form = UserMessageForm()
+    if form.validate_on_submit():
+        user_id = session.get("user_id")
+        message = AdminMessage(
+            user_id=user_id,
+            subject=form.subject.data,
+            message=form.message.data,
+            message_type=form.message_type.data
+        )
+        db.session.add(message)
+        db.session.commit()
+        flash("Your message has been sent to the admin.", "success")
+        return redirect(url_for('user_messages'))
+    
+    return render_template("send_user_message.html", form=form)
+
+@app.route("/appeal", methods=["GET", "POST"])
+def submit_appeal():
+    """Submit an appeal for a ban."""
+    user_id = session.get("user_id")
+    
+    if not user_id:
+        flash("You must be logged in to submit an appeal.", "warning")
+        return redirect(url_for('login'))
+    
+    user = User.query.get(user_id)
+    
+    if not user:
+        flash("User not found.", "danger")
+        return redirect(url_for('login'))
+    
+    # Check if user is banned
+    if not (user.is_permanently_banned or (user.ban_until and user.ban_until > datetime.utcnow())):
+        flash("Your account is not currently banned.", "info")
+        return redirect(url_for('index'))
+    
+    # Check if user already has a pending appeal
+    existing_appeal = UserAppeal.query.filter_by(user_id=user_id, status='pending').first()
+    if existing_appeal:
+        flash("You already have a pending appeal. Please wait for a response.", "info")
+        return redirect(url_for('index'))
+    
+    form = AppealForm()
+    if form.validate_on_submit():
+        appeal = UserAppeal(
+            user_id=user_id,
+            appeal_text=form.appeal_text.data,
+            status='pending'
+        )
+        db.session.add(appeal)
+        db.session.commit()
+        flash("Your appeal has been submitted. Our admin team will review it shortly.", "success")
+        return redirect(url_for('index'))
+    
+    return render_template("users/appeal.html", form=form, user=user)
+
+@app.route("/admin/appeal/<int:appeal_id>/approve", methods=["POST"])
+@admin_required
+def approve_appeal(appeal_id):
+    """Admin approves a ban appeal and lifts the ban."""
+    current_user = User.query.get(session.get("user_id"))
+    if not current_user or not current_user.is_admin:
+        flash("You do not have permission to perform this action.", "danger")
+        return redirect(url_for('admin_panel'))
+    
+    appeal = UserAppeal.query.get(appeal_id)
+    if not appeal:
+        flash("Appeal not found.", "danger")
+        return redirect(url_for('admin_panel'))
+    
+    user = User.query.get(appeal.user_id)
+    if not user:
+        flash("User not found.", "danger")
+        return redirect(url_for('admin_panel'))
+    
+    # Lift the ban
+    user.ban_until = None
+    user.is_permanently_banned = False
+    appeal.status = 'approved'
+    appeal.admin_response_date = datetime.utcnow()
+    db.session.commit()
+    
+    # Send ban lifted email
+    try:
+        email_body = generate_ban_lifted_email(user.username)
+        msg = Message(
+            subject='Your Account Suspension Has Been Lifted',
+            body=email_body,
+            recipients=[user.email]
+        )
+        mail.send(msg)
+    except Exception as e:
+        print(f"Error sending ban lifted email: {e}")
+    
+    flash(f"Appeal approved. Ban lifted for user {user.username}.", "success")
+    return redirect(url_for('admin_panel'))
+
+@app.route("/admin/appeal/<int:appeal_id>/reject", methods=["POST"])
+@admin_required
+def reject_appeal(appeal_id):
+    """Admin rejects a ban appeal."""
+    current_user = User.query.get(session.get("user_id"))
+    if not current_user or not current_user.is_admin:
+        flash("You do not have permission to perform this action.", "danger")
+        return redirect(url_for('admin_panel'))
+    
+    appeal = UserAppeal.query.get(appeal_id)
+    if not appeal:
+        flash("Appeal not found.", "danger")
+        return redirect(url_for('admin_panel'))
+    
+    appeal.status = 'rejected'
+    appeal.admin_response_date = datetime.utcnow()
+    db.session.commit()
+    
+    flash("Appeal rejected.", "warning")
+    return redirect(url_for('admin_panel'))
+
+@app.route("/admin/user/<int:user_id>/remove-ban", methods=["POST"])
+@admin_required
+def remove_user_ban(user_id):
+    """Admin removes a ban from a user."""
+    current_user = User.query.get(session.get("user_id"))
+    if not current_user or not current_user.is_admin:
+        flash("You do not have permission to perform this action.", "danger")
+        return redirect(url_for('admin_panel'))
+    
+    if user_id == current_user.id:
+        flash("You cannot remove your own ban.", "warning")
+        return redirect(url_for('admin_panel'))
+    
+    user = User.query.get(user_id)
+    if not user:
+        flash("User not found.", "danger")
+        return redirect(url_for('admin_panel'))
+    
+    # Remove the ban
+    user.ban_until = None
+    user.is_permanently_banned = False
+    db.session.commit()
+    
+    # Send ban lifted email
+    try:
+        email_body = generate_ban_lifted_email(user.username)
+        msg = Message(
+            subject='Your Account Suspension Has Been Lifted',
+            body=email_body,
+            recipients=[user.email]
+        )
+        mail.send(msg)
+    except Exception as e:
+        print(f"Error sending ban lifted email: {e}")
+    
+    flash(f"Ban lifted for user {user.username}.", "success")
+    return redirect(url_for('admin_panel'))

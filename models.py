@@ -1,6 +1,8 @@
 from flask_bcrypt import Bcrypt
 from flask_sqlalchemy import SQLAlchemy
+from datetime import datetime, timedelta, timezone
 import logging
+from itsdangerous import URLSafeTimedSerializer
 
 # Initialize Bcrypt for hashing passwords
 bcrypt = Bcrypt()
@@ -15,6 +17,9 @@ def connect_db(app):
     db.app = app
     # Initialize the app with SQLAlchemy
     db.init_app(app)
+    # Store app context for token generation
+    global token_serializer
+    token_serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 
 class User(db.Model):
     """User in the system."""
@@ -49,6 +54,45 @@ class User(db.Model):
         default='alcoholic'
     )
     
+    is_admin = db.Column(
+        db.Boolean,
+        nullable=False,
+        default=False
+    )
+    
+    ban_until = db.Column(
+        db.DateTime,
+        nullable=True,
+        default=None
+    )
+    
+    is_permanently_banned = db.Column(
+        db.Boolean,
+        nullable=False,
+        default=False
+    )
+    
+    created_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        default=datetime.utcnow
+    )
+    
+    is_email_verified = db.Column(
+        db.Boolean,
+        nullable=False,
+        default=False
+    )
+    
+    email_verified_at = db.Column(
+        db.DateTime,
+        nullable=True,
+        default=None
+    )
+    
+    # Relationship to admin messages
+    admin_messages = db.relationship('AdminMessage', foreign_keys='AdminMessage.user_id', backref='user', cascade="all, delete-orphan")
+    
     def __repr__(self):
         return f"<User #{self.id}: {self.username}, {self.email}>"
     
@@ -81,6 +125,36 @@ class User(db.Model):
                 return user
 
         return False
+    
+    def generate_email_verification_token(self, expires_in=86400):
+        """Generate a token for email verification that expires in 24 hours by default."""
+        try:
+            return token_serializer.dumps(self.email, salt='email-verification')
+        except Exception as e:
+            logging.error(f"Error generating email verification token: {e}")
+            raise
+    
+    @staticmethod
+    def verify_email_token(token, expires_in=86400):
+        """Verify the email verification token and return the email if valid."""
+        try:
+            email = token_serializer.loads(token, salt='email-verification', max_age=expires_in)
+            return email
+        except Exception as e:
+            logging.error(f"Error verifying email token: {e}")
+            return None
+    
+    def mark_email_verified(self):
+        """Mark the user's email as verified."""
+        try:
+            self.is_email_verified = True
+            self.email_verified_at = datetime.now(timezone.utc)
+            db.session.commit()
+            logging.debug(f"Email verified for user: {self}")
+        except Exception as e:
+            logging.error(f"Error marking email as verified: {e}")
+            db.session.rollback()
+            raise
     
     def add_preference(self, preference):
         """Add preference to the user"""
@@ -132,7 +206,6 @@ class Cocktail(db.Model):
     name = db.Column(
         db.Text,
         nullable=False,
-        unique=True,
     )
 
     instructions = db.Column(
@@ -148,6 +221,12 @@ class Cocktail(db.Model):
     image_url = db.Column(
         db.String,
         nullable=True
+    )
+    
+    is_api_cocktail = db.Column(
+        db.Boolean,
+        nullable=False,
+        default=False
     )
     # Define the relationship between Cocktail and Cocktails_Users
     ct_users2 = db.relationship('Cocktails_Users', backref='cocktails')
@@ -212,3 +291,109 @@ class UserFavoriteIngredients(db.Model):
         db.ForeignKey('ingredient.id'),
         primary_key=True
     )
+
+class AdminMessage(db.Model):
+    """Messages between admin and users for warnings, suggestions, and incident reports"""
+    __tablename__ = "admin_message"
+    
+    id = db.Column(
+        db.Integer,
+        primary_key=True,
+        autoincrement=True,
+    )
+    
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey('user.id'),
+        nullable=False,
+    )
+    
+    subject = db.Column(
+        db.String(255),
+        nullable=False,
+    )
+    
+    message = db.Column(
+        db.Text,
+        nullable=False,
+    )
+    
+    message_type = db.Column(
+        db.String(50),
+        nullable=False,
+        default='user_report'
+    )
+    
+    created_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        default=datetime.utcnow
+    )
+    
+    is_read = db.Column(
+        db.Boolean,
+        nullable=False,
+        default=False
+    )
+    
+    admin_response = db.Column(
+        db.Text,
+        nullable=True,
+        default=None
+    )
+    
+    admin_response_date = db.Column(
+        db.DateTime,
+        nullable=True,
+        default=None
+    )
+    
+    def __repr__(self):
+        return f"<AdminMessage #{self.id}: from {self.user_id} - {self.subject}>"
+class UserAppeal(db.Model):
+    """Appeals submitted by banned users requesting removal of their ban"""
+    __tablename__ = "user_appeal"
+    
+    id = db.Column(
+        db.Integer,
+        primary_key=True,
+        autoincrement=True,
+    )
+    
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey('user.id'),
+        nullable=False,
+    )
+    
+    appeal_text = db.Column(
+        db.Text,
+        nullable=False,
+    )
+    
+    created_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        default=datetime.utcnow
+    )
+    
+    status = db.Column(
+        db.String(50),
+        nullable=False,
+        default='pending'  # pending, approved, rejected
+    )
+    
+    admin_response = db.Column(
+        db.Text,
+        nullable=True,
+        default=None
+    )
+    
+    admin_response_date = db.Column(
+        db.DateTime,
+        nullable=True,
+        default=None
+    )
+    
+    def __repr__(self):
+        return f"<UserAppeal #{self.id}: from {self.user_id} - {self.status}>"

@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Submit Ban Appeal - Cocktail Chronicles{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow-lg">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="mb-0"><i class="fas fa-file-contract"></i> Submit Ban Appeal</h2>
+                </div>
+                <div class="card-body">
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+
+                    <div class="alert alert-info mb-4">
+                        <h5 class="alert-heading"><i class="fas fa-info-circle"></i> Your Account Status</h5>
+                        <p class="mb-0">
+                            Your account is currently suspended. You have the right to appeal this decision. 
+                            Please provide a detailed explanation of your appeal below.
+                        </p>
+                    </div>
+
+                    <form method="POST" class="needs-validation">
+                        {{ form.hidden_tag() }}
+                        
+                        <div class="mb-4">
+                            <h5 class="card-title">Appeal Guidelines</h5>
+                            <ul class="text-muted small">
+                                <li>Be honest and respectful in your explanation</li>
+                                <li>Clearly explain why you believe the suspension was made in error</li>
+                                <li>Provide any relevant context or evidence that supports your case</li>
+                                <li>Describe how you will ensure compliance with our Community Guidelines going forward</li>
+                                <li>Keep your appeal between 50 and 3000 characters</li>
+                            </ul>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="appeal_text" class="form-label">
+                                <strong>Your Appeal Statement</strong>
+                                <span class="text-danger">*</span>
+                            </label>
+                            <textarea 
+                                class="form-control {% if form.appeal_text.errors %}is-invalid{% endif %}" 
+                                id="appeal_text" 
+                                name="appeal_text" 
+                                rows="8" 
+                                placeholder="Please provide a detailed explanation of your appeal..."
+                                minlength="50"
+                                maxlength="3000"
+                                required></textarea>
+                            <small class="form-text text-muted d-block mt-2">
+                                <span id="char-count">0</span> / 3000 characters
+                            </small>
+                            {% if form.appeal_text.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.appeal_text.errors %}
+                                        <i class="fas fa-exclamation-circle"></i> {{ error }}<br>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="d-grid gap-2 d-sm-flex justify-content-sm-end">
+                            <a href="{{ url_for('index') }}" class="btn btn-secondary" role="button">
+                                <i class="fas fa-times"></i> Cancel
+                            </a>
+                            {{ form.submit(class="btn btn-primary") }}
+                        </div>
+                    </form>
+
+                    <hr class="my-4">
+
+                    <div class="alert alert-light border border-secondary">
+                        <h6 class="text-secondary">What happens next?</h6>
+                        <p class="small mb-0">
+                            Our admin team will carefully review your appeal and respond within 5-7 business days. 
+                            You will receive an email notification with the outcome of your appeal. We appreciate your patience.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Update character count as user types
+    document.getElementById('appeal_text').addEventListener('input', function() {
+        document.getElementById('char-count').textContent = this.value.length;
+    });
+</script>
+{% endblock %}

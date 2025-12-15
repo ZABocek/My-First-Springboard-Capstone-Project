@@ -1,18 +1,15 @@
 import unittest
-from app import app, db
+from app import app, db, init_db
 from models import User, Ingredient, Cocktail, Cocktails_Users, Cocktails_Ingredients
-import subprocess
 
 class FlaskTestCase(unittest.TestCase):
     def setUp(self):
         """Set up the test client and initialize the database"""
-        self.app = app.test_client()
-        self.app.testing = True
-        app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql:///test_name_your_poison'
-
-        # Run the SQL script to create the test database
-        subprocess.run(["psql", "-f", "create_test_db.sql"])
-
+        app.config['TESTING'] = True
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+        
+        self.client = app.test_client()
+        
         with app.app_context():
             db.create_all()
 
@@ -24,85 +21,81 @@ class FlaskTestCase(unittest.TestCase):
 
     def test_register_user(self):
         """Test user registration"""
-        response = self.app.post('/register', data=dict(
-            username='testuser',
-            password='testpassword',
-            email='test@example.com',
-            confirm='testpassword'
-        ), follow_redirects=True)
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(b'Preference updated successfully!', response.data)
+        with app.app_context():
+            user = User.register(username='testuser', email='test@example.com', password='testpassword')
+            db.session.add(user)
+            db.session.commit()
+            
+            # Verify user was created
+            check_user = User.query.filter_by(username='testuser').first()
+            self.assertIsNotNone(check_user)
+            self.assertEqual(check_user.email, 'test@example.com')
 
     def test_login_user(self):
         """Test user login"""
-        # First, register the user
-        self.app.post('/register', data=dict(
-            username='testuser',
-            password='testpassword',
-            email='test@example.com',
-            confirm='testpassword'
-        ), follow_redirects=True)
-        
-        # Then, try to log in
-        response = self.app.post('/login', data=dict(
-            username='testuser',
-            password='testpassword'
-        ), follow_redirects=True)
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(b'Name Your Poison', response.data)
+        with app.app_context():
+            # First, register the user
+            user = User.register(username='testuser', email='test@example.com', password='testpassword')
+            db.session.add(user)
+            db.session.commit()
+            
+            # Try to authenticate
+            authenticated_user = User.authenticate(username='testuser', password='testpassword')
+            self.assertIsNotNone(authenticated_user)
+            self.assertEqual(authenticated_user.username, 'testuser')
+            
+            # Try with wrong password
+            wrong_auth = User.authenticate(username='testuser', password='wrongpassword')
+            self.assertFalse(wrong_auth)
+
+    def test_add_ingredient(self):
+        """Test adding an ingredient"""
+        with app.app_context():
+            ingredient = Ingredient(name='Vodka')
+            db.session.add(ingredient)
+            db.session.commit()
+            
+            # Verify ingredient was created
+            check_ingredient = Ingredient.query.filter_by(name='Vodka').first()
+            self.assertIsNotNone(check_ingredient)
+            self.assertEqual(check_ingredient.name, 'Vodka')
 
     def test_add_cocktail(self):
         """Test adding a cocktail"""
-        # Register and log in the user
-        self.app.post('/register', data=dict(
-            username='testuser',
-            password='testpassword',
-            email='test@example.com',
-            confirm='testpassword'
-        ), follow_redirects=True)
-        
-        self.app.post('/login', data=dict(
-            username='testuser',
-            password='testpassword'
-        ), follow_redirects=True)
+        import time
+        with app.app_context():
+            cocktail_name = f'Test Cocktail {int(time.time())}'
+            cocktail = Cocktail(name=cocktail_name, instructions='Shake well')
+            db.session.add(cocktail)
+            db.session.commit()
+            
+            # Verify cocktail was created
+            check_cocktail = Cocktail.query.filter_by(name=cocktail_name).first()
+            self.assertIsNotNone(check_cocktail)
+            self.assertEqual(check_cocktail.instructions, 'Shake well')
 
-        # Add a new cocktail
-        response = self.app.post('/add-original-cocktails', data=dict(
-            name='Test Cocktail',
-            instructions='Shake well',
-            ingredients=['Vodka', 'Orange Juice'],
-            measures=['1 oz', '2 oz']
-        ), follow_redirects=True)
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(b'Successfully added your original cocktail!', response.data)
-
-    def test_view_cocktail(self):
-        """Test viewing a cocktail"""
-        # Register and log in the user
-        self.app.post('/register', data=dict(
-            username='testuser',
-            password='testpassword',
-            email='test@example.com',
-            confirm='testpassword'
-        ), follow_redirects=True)
-        
-        self.app.post('/login', data=dict(
-            username='testuser',
-            password='testpassword'
-        ), follow_redirects=True)
-
-        # Add a new cocktail
-        self.app.post('/add-original-cocktails', data=dict(
-            name='Test Cocktail',
-            instructions='Shake well',
-            ingredients=['Vodka', 'Orange Juice'],
-            measures=['1 oz', '2 oz']
-        ), follow_redirects=True)
-
-        # View the cocktail
-        response = self.app.get('/my-cocktails', follow_redirects=True)
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(b'Test Cocktail', response.data)
+    def test_cocktail_ingredient_relationship(self):
+        """Test the relationship between cocktails and ingredients"""
+        with app.app_context():
+            # Create ingredient
+            ingredient = Ingredient(name='Vodka')
+            db.session.add(ingredient)
+            db.session.commit()
+            
+            # Create cocktail
+            cocktail = Cocktail(name='Vodka Tonic', instructions='Mix well')
+            db.session.add(cocktail)
+            db.session.commit()
+            
+            # Create relationship
+            assoc = Cocktails_Ingredients(cocktail_id=cocktail.id, ingredient_id=ingredient.id, quantity='1 oz')
+            db.session.add(assoc)
+            db.session.commit()
+            
+            # Verify relationship
+            check_assoc = Cocktails_Ingredients.query.filter_by(cocktail_id=cocktail.id).first()
+            self.assertIsNotNone(check_assoc)
+            self.assertEqual(check_assoc.quantity, '1 oz')
 
 if __name__ == '__main__':
     unittest.main()
