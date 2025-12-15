@@ -91,7 +91,7 @@ def test_admin_workflow():
         
         # Test with correct admin password
         print("\n4. Testing with CORRECT admin password...")
-        correct_key = os.getenv('ADMIN_PASSWORD_KEY', 'U$a$ucks50015')
+        correct_key = os.getenv('ADMIN_PASSWORD_KEY', 'test-default-key')
         response = client.post('/admin/unlock', data={
             'csrf_token': csrf_token,
             'admin_key': correct_key

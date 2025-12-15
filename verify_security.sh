@@ -13,14 +13,14 @@ fi
 
 echo ""
 echo "✓ Step 2: Verify .env contains your keys"
-if grep -q "SECRET_KEY=152jabbashubawoopie98LfRs" .env; then
-    echo "  ✅ SECRET_KEY is set correctly"
+if grep -q "SECRET_KEY=" .env; then
+    echo "  ✅ SECRET_KEY is set"
 else
     echo "  ❌ SECRET_KEY not found or incorrect"
 fi
 
-if grep -q "ADMIN_PASSWORD_KEY=U\$a\$ucks50015" .env; then
-    echo "  ✅ ADMIN_PASSWORD_KEY is set correctly"
+if grep -q "ADMIN_PASSWORD_KEY=" .env; then
+    echo "  ✅ ADMIN_PASSWORD_KEY is set"
 else
     echo "  ❌ ADMIN_PASSWORD_KEY not found or incorrect"
 fi
