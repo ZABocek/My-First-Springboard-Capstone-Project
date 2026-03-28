@@ -2,21 +2,14 @@
 {% block content %}
 
 <div class="jumbotron text-center py-5">
-  <h1 class="display-4">Cocktail Chronicles</h1>
+  <h1 class="display-4 cc-hero-heading">Cocktail Chronicles</h1>
   <p class="lead">Discover, save, and share your favourite cocktail recipes.</p>
   <hr class="my-4">
-
-  {% if 'user_id' not in session %}
-    <p>Join us to start building your personal cocktail collection.</p>
-    <a class="btn btn-primary btn-lg mr-2" href="/register" role="button">Register</a>
-    <a class="btn btn-outline-secondary btn-lg" href="/login" role="button">Log In</a>
-  {% else %}
-    <p>Welcome back! Head to your cocktail collection or explore new drinks.</p>
-    <a class="btn btn-primary btn-lg mr-2"
-       href="{{ url_for('cocktails.my_cocktails') }}" role="button">My Cocktails</a>
-    <a class="btn btn-outline-secondary btn-lg"
-       href="{{ url_for('cocktails.list_cocktails') }}" role="button">Browse Cocktails</a>
-  {% endif %}
+  <p>Welcome back! Head to your cocktail collection or explore new drinks.</p>
+  <a class="btn btn-primary btn-lg mr-2"
+     href="{{ url_for('cocktails.my_cocktails') }}" role="button">My Cocktails</a>
+  <a class="btn btn-outline-secondary btn-lg"
+     href="{{ url_for('cocktails.list_cocktails') }}" role="button">Browse Cocktails</a>
 </div>
 
 {% endblock %}

@@ -3,7 +3,9 @@
 {% block content %}
   <div class="cocktail_details">
     <h2>{{ cocktail.strDrink }}</h2>
+    {% if cocktail.strDrinkThumb %}
     <img src="{{ cocktail.strDrinkThumb }}" alt="{{ cocktail.strDrink }}" />
+    {% endif %}
     <p><strong>Ingredients:</strong></p>
     <ul>
       {% for i in range(1, 16) %}

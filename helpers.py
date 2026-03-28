@@ -142,3 +142,22 @@ The Cocktail Chronicles Team
     """.strip()
     return email_body
 
+
+def generate_appeal_rejection_email(username):
+    """Generate email notifying a user that their ban appeal has been rejected."""
+    email_body = f"""
+Dear {username},
+
+Thank you for submitting a ban appeal. After careful review, we regret to inform you
+that your appeal has been rejected and the account suspension will remain in effect.
+
+If you believe this decision was made in error, or if your circumstances change in the
+future, you are welcome to submit a new appeal at a later time.
+
+We appreciate your patience and understanding.
+
+Best regards,
+The Cocktail Chronicles Admin Team
+    """.strip()
+    return email_body
+

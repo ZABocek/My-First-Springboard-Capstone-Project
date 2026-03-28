@@ -130,15 +130,15 @@ def my_cocktails():
         ]
         cocktail_details.append({
             'id': cocktail.id,
-            'strDrink': cocktail.name,
-            'strInstructions': cocktail.instructions,
+            'name': cocktail.name,
+            'instructions': cocktail.instructions,
             'ingredients': ingredients,
             # Resolve image URL once via the service helper (prefers image_url,
             # falls back to strDrinkThumb, returns None when neither is set).
-            'strDrinkThumb': get_cocktail_image_url(cocktail),
+            'image_url': get_cocktail_image_url(cocktail),
         })
 
-    cocktail_details.sort(key=lambda x: x['strDrink'])
+    cocktail_details.sort(key=lambda x: x['name'])
     return render_template('my_cocktails.html', cocktails=cocktail_details)
 
 
@@ -204,10 +204,31 @@ def add_original_cocktails():
 
     form = OriginalCocktailForm()
     if form.validate_on_submit():
-        # Discard entries where either the ingredient name or measure is blank.
-        filtered = [
-            (i, m) for i, m in zip(form.ingredients.data, form.measures.data) if i and m
+        # Reject partial rows (ingredient without measure, or vice versa).
+        partial_errors = [
+            i + 1
+            for i, (ing, meas) in enumerate(zip(form.ingredients.data, form.measures.data))
+            if bool((ing or '').strip()) != bool((meas or '').strip())
         ]
+        if partial_errors:
+            for row_num in partial_errors:
+                flash(
+                    f'Row {row_num}: both the ingredient and its measure must be '
+                    f'filled in together, or both left empty.',
+                    'danger',
+                )
+            return render_template('add_original_cocktails.html', form=form)
+
+        # Discard fully-blank rows; keep only pairs where both fields are filled.
+        filtered = [
+            (i.strip(), m.strip())
+            for i, m in zip(form.ingredients.data, form.measures.data)
+            if (i or '').strip() and (m or '').strip()
+        ]
+
+        if not filtered:
+            flash('Please add at least one ingredient with a measurement.', 'danger')
+            return render_template('add_original_cocktails.html', form=form)
 
         # owner_id ties this cocktail to the creating user for ownership queries.
         new_cocktail = Cocktail(
@@ -237,6 +258,8 @@ def add_original_cocktails():
                 )
             )
 
+        # Track saved upload path so we can clean it up if the DB commit fails.
+        filename = None
         try:
             # Validate extension and magic bytes before saving to disk.
             filename = save_uploaded_image(form.image.data)
@@ -250,7 +273,16 @@ def add_original_cocktails():
             return render_template('add_original_cocktails.html', form=form)
 
         # Single commit covers all the rows prepared above.
-        db.session.commit()
+        try:
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            # Remove the just-saved upload to avoid orphaning it on disk.
+            if filename:
+                delete_uploaded_image(filename)
+            current_app.logger.error(f"DB commit failed during cocktail creation: {e}")
+            flash('Failed to save your cocktail. Please try again.', 'danger')
+            return render_template('add_original_cocktails.html', form=form)
         flash('Successfully added your original cocktail!', 'success')
         return redirect(url_for('cocktails.my_cocktails'))
 
@@ -349,20 +381,22 @@ def edit_cocktail(cocktail_id):
         cocktail.name = form.name.data
         cocktail.instructions = form.instructions.data
 
+        # Track the new upload path for orphan cleanup if the DB commit fails.
+        new_filename = None
+        old_image = None
         try:
             # save_uploaded_image validates both extension and magic bytes.
-            filename = save_uploaded_image(form.image.data)
-            if filename:
+            new_filename = save_uploaded_image(form.image.data)
+            if new_filename:
                 old_image = cocktail.image_url  # remember for cleanup after commit
                 # Consolidate to image_url for user uploads; clear legacy field.
-                cocktail.image_url = filename
+                cocktail.image_url = new_filename
                 cocktail.strDrinkThumb = None
         except ValueError as e:
             db.session.rollback()
             flash(str(e), 'danger')
-            return render_template('edit_my_cocktails.html', form=form, cocktail=cocktail)
-        else:
-            old_image = None  # no new upload — nothing to clean up
+            return render_template('edit_my_cocktails.html', form=form, cocktail=cocktail,
+                                   resolved_image=get_cocktail_image_url(cocktail))
 
         # Sync ingredients: remove rows no longer in the form, add/update the rest.
         new_names = {ing['ingredient'] for ing in form.ingredients.data}
@@ -392,7 +426,17 @@ def edit_cocktail(cocktail_id):
                     )
                 )
 
-        db.session.commit()
+        try:
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            # Remove the new upload to prevent it becoming an orphan on disk.
+            if new_filename:
+                delete_uploaded_image(new_filename)
+            current_app.logger.error(f"DB commit failed during cocktail edit: {e}")
+            flash('Failed to save changes. Please try again.', 'danger')
+            return render_template('edit_my_cocktails.html', form=form, cocktail=cocktail,
+                                   resolved_image=get_cocktail_image_url(cocktail))
         # Delete the old local upload only after a successful commit.
         delete_uploaded_image(old_image)
         flash('Your cocktail has been updated!', 'success')
@@ -409,4 +453,5 @@ def edit_cocktail(cocktail_id):
             entry.measure.data = assoc.quantity
             form.ingredients.append_entry(entry.data)
 
-    return render_template('edit_my_cocktails.html', form=form, cocktail=cocktail)
+    return render_template('edit_my_cocktails.html', form=form, cocktail=cocktail,
+                           resolved_image=get_cocktail_image_url(cocktail))

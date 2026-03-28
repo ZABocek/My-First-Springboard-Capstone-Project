@@ -80,3 +80,14 @@ def send_ban_lifted_email(user):
         recipients=[user.email],
         body=body,
     ))
+
+
+def send_appeal_rejection_email(user):
+    """Notify a user that their ban appeal has been rejected."""
+    from helpers import generate_appeal_rejection_email
+    body = generate_appeal_rejection_email(user.username)
+    _dispatch(Message(
+        subject='Your Ban Appeal Has Been Reviewed',
+        recipients=[user.email],
+        body=body,
+    ))

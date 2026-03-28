@@ -23,14 +23,8 @@ def search_ingredient(ingredient_name):
     url = f"{BASE_URL}/search.php"
     # Send a GET request to the API with the ingredient name as a parameter
     response = requests.get(url, params={"i": ingredient_name}, timeout=_SYNC_TIMEOUT)
-    
-    # Check if the response status code is 200 (OK)
-    if response.status_code == 200:
-        # Return the JSON content of the response
-        return response.json()
-    else:
-        # Return None if the request was not successful
-        return None
+    response.raise_for_status()
+    return response.json()
 
 # Asynchronous function to list all ingredients from the API
 async def list_ingredients():
@@ -38,7 +32,7 @@ async def list_ingredients():
     url = f"{BASE_URL}/list.php?i=list"
     try:
         # Use httpx.AsyncClient to send a GET request asynchronously
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(10.0, connect=5.0)) as client:
             response = await client.get(url)
             # Raise an exception for 4XX/5XX responses
             response.raise_for_status()
@@ -91,14 +85,8 @@ def lookup_cocktail(cocktail_id):
     url = f"{BASE_URL}/lookup.php"
     # Send a GET request to the API with the cocktail ID as a parameter
     response = requests.get(url, params={"i": cocktail_id}, timeout=_SYNC_TIMEOUT)
-    
-    # Check if the response status code is 200 (OK)
-    if response.status_code == 200:
-        # Return the JSON content of the response
-        return response.json()
-    else:
-        # Return None if the request was not successful
-        return None
+    response.raise_for_status()
+    return response.json()
 
 # Asynchronous function to get a combined list of cocktails by querying multiple letters
 async def get_combined_cocktails_list():
@@ -140,17 +128,15 @@ def get_cocktail_detail(cocktail_id):
     url = f"{BASE_URL}/lookup.php?i={cocktail_id}"
     # Send a GET request to the API with an explicit timeout to prevent hangs.
     response = requests.get(url, timeout=_SYNC_TIMEOUT)
-    # Check if the response status code is 200 (OK)
-    if response.status_code == 200:
-        drinks = response.json().get('drinks') or []
-        return drinks[0] if drinks else None
-    return None
+    response.raise_for_status()
+    drinks = response.json().get('drinks') or []
+    return drinks[0] if drinks else None
 
 # Function to get a random cocktail from the API
 @backoff.on_exception(backoff.expo, requests.exceptions.RequestException, max_tries=3)
 def get_random_cocktail():
     # Define the endpoint URL for getting a random cocktail
-    endpoint = "https://www.thecocktaildb.com/api/json/v1/1/random.php"
+    endpoint = f"{BASE_URL}/random.php"
     # Send a GET request to the API with an explicit timeout.
     response = requests.get(endpoint, timeout=_SYNC_TIMEOUT)
     # Parse the JSON response data

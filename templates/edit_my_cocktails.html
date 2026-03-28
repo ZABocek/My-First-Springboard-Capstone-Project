@@ -4,8 +4,8 @@
   <form method="post" enctype="multipart/form-data">
     {{ form.hidden_tag() }} {{ form.name.label }} {{
     form.name(class='form-control') }}<br />
-    {% if cocktail.strDrinkThumb %}
-    <img src="{{ cocktail.strDrinkThumb }}" alt="{{ cocktail.strDrink }}" />
+    {% if resolved_image %}
+    <img src="{{ resolved_image }}" alt="{{ cocktail.name }}" style="max-height: 200px;" /><br />
     <label>Change Image: </label>{{ form.image() }}<br />
     {% else %}
     <label>Upload Image: </label>{{ form.image() }}<br />

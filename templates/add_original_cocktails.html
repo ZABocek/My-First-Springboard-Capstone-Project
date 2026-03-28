@@ -7,11 +7,16 @@
 
     <strong>Ingredients:</strong><br />
     <div id="ingredient-fields">
+      {% for i in range(form.ingredients | length) %}
       <div class="ingredient-group">
-        {{ form.ingredients[0]() }}<br />
+        {{ form.ingredients[i]() }}<br />
         <strong>Measures:</strong><br />
-        {{ form.measures[0]() }}<br />
+        {{ form.measures[i]() }}<br />
+        {% if not loop.first %}
+        <button type="button" class="remove-ingredient btn btn-sm btn-danger mt-1 mb-2">Remove</button>
+        {% endif %}
       </div>
+      {% endfor %}
     </div>
     <button type="button" id="add-ingredient">Add Another Ingredient</button>
     <p>
@@ -23,7 +28,7 @@
   </form>
 
   <script>
-    let ingredientIndex = 1;
+    let ingredientIndex = {{ form.ingredients | length }};
     document
       .getElementById("add-ingredient")
       .addEventListener("click", function () {
@@ -47,11 +52,28 @@
         ingredientGroup.appendChild(measureField);
         ingredientGroup.appendChild(document.createElement("br"));
 
+        const removeBtn = document.createElement("button");
+        removeBtn.type = "button";
+        removeBtn.className = "remove-ingredient btn btn-sm btn-danger mt-1 mb-2";
+        removeBtn.innerText = "Remove";
+        ingredientGroup.appendChild(removeBtn);
+
         document
           .getElementById("ingredient-fields")
           .appendChild(ingredientGroup);
         ingredientIndex++;
       });
+
+    document.getElementById("ingredient-fields").addEventListener("click", function (e) {
+      if (e.target.classList.contains("remove-ingredient")) {
+        const groups = document.querySelectorAll(".ingredient-group");
+        if (groups.length > 1) {
+          e.target.closest(".ingredient-group").remove();
+        } else {
+          alert("At least one ingredient is required!");
+        }
+      }
+    });
   </script>
 </div>
 {% endblock %}

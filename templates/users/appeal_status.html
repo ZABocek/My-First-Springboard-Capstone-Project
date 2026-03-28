@@ -11,31 +11,55 @@
                     <h2 class="mb-0"><i class="fas fa-hourglass-half"></i> Appeal Status</h2>
                 </div>
                 <div class="card-body text-center py-5">
-                    {% if pending_appeal %}
-                        <i class="fas fa-clock fa-4x text-info mb-4"></i>
-                        <h4>Your Appeal is Pending Review</h4>
-                        <p class="text-muted">
-                            Our admin team will carefully review your appeal and respond within
-                            5–7 business days. You will receive an email notification with the outcome.
-                        </p>
-                        <p class="text-muted small">
-                            Submitted: {{ pending_appeal.created_at.strftime('%B %d, %Y') }}
-                        </p>
+                    {% if latest_appeal %}
+                        {% if latest_appeal.status == 'pending' %}
+                            <i class="fas fa-clock fa-4x text-info mb-4"></i>
+                            <h4>Your Appeal is Pending Review</h4>
+                            <p class="text-muted">
+                                Our admin team will carefully review your appeal and respond within
+                                5&ndash;7 business days. You will receive an email notification with the outcome.
+                            </p>
+                            <p class="text-muted small">
+                                Submitted: {{ latest_appeal.created_at.strftime('%B %d, %Y') }}
+                            </p>
+                            <p class="text-muted small">
+                                While your appeal is under review your account remains suspended.
+                            </p>
+                        {% elif latest_appeal.status == 'approved' %}
+                            <i class="fas fa-check-circle fa-4x text-success mb-4"></i>
+                            <h4 class="text-success">Appeal Approved</h4>
+                            <p class="text-muted">
+                                Your appeal has been approved and your ban has been lifted.
+                                You may now <a href="{{ url_for('auth.login') }}">log in</a> normally.
+                            </p>
+                            {% if latest_appeal.admin_response %}
+                            <div class="alert alert-success text-start mt-3">
+                                <strong>Admin message:</strong> {{ latest_appeal.admin_response }}
+                            </div>
+                            {% endif %}
+                        {% elif latest_appeal.status == 'rejected' %}
+                            <i class="fas fa-times-circle fa-4x text-danger mb-4"></i>
+                            <h4 class="text-danger">Appeal Rejected</h4>
+                            <p class="text-muted">
+                                We have reviewed your appeal and are unable to lift the suspension at this time.
+                            </p>
+                            {% if latest_appeal.admin_response %}
+                            <div class="alert alert-warning text-start mt-3">
+                                <strong>Admin response:</strong> {{ latest_appeal.admin_response }}
+                            </div>
+                            {% endif %}
+                        {% endif %}
                     {% else %}
-                        <i class="fas fa-check-circle fa-4x text-success mb-4"></i>
-                        <h4>Appeal Submitted</h4>
+                        <i class="fas fa-file-alt fa-4x text-secondary mb-4"></i>
+                        <h4>No Appeal Found</h4>
                         <p class="text-muted">
-                            Your appeal has been submitted successfully. Our admin team will
-                            review it and respond within 5–7 business days.
+                            You have not submitted an appeal yet. If your account is currently suspended,
+                            you may submit one below.
                         </p>
+                        <a href="{{ url_for('users.submit_appeal') }}" class="btn btn-primary mt-3">
+                            <i class="fas fa-file-contract"></i> Submit an Appeal
+                        </a>
                     {% endif %}
-
-                    <hr class="my-4">
-
-                    <p class="text-muted small">
-                        While your appeal is under review your account remains suspended.
-                        If you have further questions please wait for the admin response.
-                    </p>
                 </div>
             </div>
         </div>

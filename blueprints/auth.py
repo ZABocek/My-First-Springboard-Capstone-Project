@@ -164,6 +164,9 @@ def login():
                     "Please verify your email address before logging in.",
                     "warning",
                 )
+                # Grant this browser session access to verification_pending and
+                # resend_verification so the user is not locked out of their own flow.
+                session['pending_verification_user_id'] = user.id
                 return redirect(url_for('auth.verification_pending', user_id=user.id))
 
             # Establish the session *before* the ban redirect so the appeals
@@ -199,6 +202,8 @@ def login():
 
 @auth_bp.route("/logout", methods=["POST"])
 def logout():
-    # Remove the user identity key; other session data is left untouched.
+    # Remove both identity keys so stale session state cannot authorize access
+    # to verification_pending / resend_verification after logout.
     session.pop("user_id", None)
+    session.pop("pending_verification_user_id", None)
     return redirect(url_for('auth.login'))

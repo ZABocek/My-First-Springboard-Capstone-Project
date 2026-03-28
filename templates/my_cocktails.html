@@ -4,11 +4,9 @@
   <div class="my_cocktails">
     <h2>My Cocktails</h2>
     {% for cocktail in cocktails %}
-      <h3>{{ cocktail.strDrink }}</h3>
-      {% if cocktail.get('strDrinkThumb') and cocktail.strDrinkThumb.startswith('http') %}
-        <img src="{{ cocktail.strDrinkThumb }}" alt="{{ cocktail.strDrink }}" />
-      {% elif cocktail.get('strDrinkThumb') %}
-        <img src="{{ cocktail.strDrinkThumb }}" alt="{{ cocktail.strDrink }}" />
+      <h3>{{ cocktail.name }}</h3>
+      {% if cocktail.image_url %}
+        <img src="{{ cocktail.image_url }}" alt="{{ cocktail.name }}" />
       {% endif %}
       <p><strong>Ingredients:</strong></p>
       <ul>
@@ -16,7 +14,7 @@
           <li>{{ item.ingredient }} - {{ item.measure or '' }}</li>
         {% endfor %}
       </ul>
-      <p><strong>Instructions:</strong> {{ cocktail.strInstructions }}</p>
+      <p><strong>Instructions:</strong> {{ cocktail.instructions }}</p>
       <hr>
       <a href="{{ url_for('cocktails.edit_cocktail', cocktail_id=cocktail.id) }}" class="btn btn-primary">Edit</a>
       <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal{{ cocktail.id }}">Delete</button>
@@ -31,7 +29,7 @@
               <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-              <p>Are you sure you want to delete <strong>{{ cocktail.strDrink }}</strong>? This action cannot be undone.</p>
+              <p>Are you sure you want to delete <strong>{{ cocktail.name }}</strong>? This action cannot be undone.</p>
             </div>
             <div class="modal-footer">
               <form method="POST" action="{{ url_for('cocktails.delete_cocktail', cocktail_id=cocktail.id) }}" style="display:inline;">

@@ -44,6 +44,15 @@ def profile(user_id):
         ]
     else:
         logging.error("Failed to retrieve ingredients from API")
+        # Fall back to the ingredient list already saved in the database.
+        db_ingredients = Ingredient.query.order_by(Ingredient.name).all()
+        ingredient_form.ingredient.choices = [(i.name, i.name) for i in db_ingredients]
+        if not db_ingredients:
+            flash("Ingredient list is temporarily unavailable. Please try again later.", "warning")
+
+    # Pre-populate the preference dropdown with the currently saved value on GET.
+    if request.method == 'GET':
+        preference_form.preference.data = user.preference
 
     if request.method == 'POST':
         submit_button = request.form.get('submit_button')
@@ -101,8 +110,13 @@ def profile(user_id):
 
 @users_bp.route('/delete-favorite-ingredient/<int:user_id>/<int:ingredient_id>', methods=['POST'])
 def delete_favorite_ingredient(user_id, ingredient_id):
-    # Restrict deletion to the owning user only (no admin exception needed here).
-    if 'user_id' not in session or session.get('user_id') != user_id:
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        flash('You do not have permission to delete this ingredient.', 'danger')
+        return redirect(url_for('users.profile', user_id=user_id))
+    # Allow admins to remove ingredients on any profile; users may only touch their own.
+    current_user_obj = User.query.get(current_user_id)
+    if current_user_id != user_id and (not current_user_obj or not current_user_obj.is_admin):
         flash('You do not have permission to delete this ingredient.', 'danger')
         return redirect(url_for('users.profile', user_id=user_id))
     try:
@@ -167,8 +181,15 @@ def appeal_status():
     if not user_id:
         return redirect(url_for('auth.login'))
     user = User.query.get_or_404(user_id)
-    pending_appeal = UserAppeal.query.filter_by(user_id=user_id, status='pending').first()
-    return render_template("users/appeal_status.html", user=user, pending_appeal=pending_appeal)
+    # Load the most recent appeal regardless of status so the template can show
+    # distinct states: pending, approved, rejected, or none.
+    latest_appeal = (
+        UserAppeal.query
+        .filter_by(user_id=user_id)
+        .order_by(UserAppeal.created_at.desc())
+        .first()
+    )
+    return render_template("users/appeal_status.html", user=user, latest_appeal=latest_appeal)
 
 
 @users_bp.route("/appeal", methods=["GET", "POST"])

@@ -1,6 +1,7 @@
 -- create_test_db.sql
--- Test database schema kept in sync with models.py / Alembic migrations.
--- For production and staging environments always use: flask db upgrade
+-- Manual schema snapshot for local test setup. This file is NOT authoritative;
+-- the canonical schema is managed by Alembic migrations. Always run
+-- 'flask db upgrade' for production and staging environments.
 
 -- Drop the database if it already exists
 DROP DATABASE IF EXISTS test_cocktail_chronicles;
@@ -97,7 +98,7 @@ CREATE TABLE cocktails_users (
 -- Admin audit log (immutable record of moderation actions)
 CREATE TABLE admin_audit_log (
     id SERIAL PRIMARY KEY,
-    admin_id INTEGER NOT NULL REFERENCES "user"(id),
+    admin_id INTEGER REFERENCES "user"(id) ON DELETE SET NULL,
     action VARCHAR(100) NOT NULL,
     target_user_id INTEGER REFERENCES "user"(id),
     details TEXT,

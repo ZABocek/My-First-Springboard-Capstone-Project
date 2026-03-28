@@ -135,6 +135,65 @@
         </div>
     </div>
     
+    <!-- Pending Ban Appeals Section -->
+    <div class="row mt-5">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h3 class="mb-0">Pending Ban Appeals ({{ appeals|length }})</h3>
+                </div>
+                <div class="card-body">
+                    {% if appeals %}
+                        {% for appeal in appeals %}
+                        <div class="card mb-3 border-warning">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>{{ appeal.user.username }}</strong>
+                                    <span class="text-muted small ms-2">Appeal #{{ appeal.id }}</span>
+                                </div>
+                                <span class="text-muted small">
+                                    Submitted: {{ appeal.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                </span>
+                            </div>
+                            <div class="card-body">
+                                <p class="mb-3">{{ appeal.appeal_text }}</p>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <form method="POST" action="{{ url_for('admin.approve_appeal', appeal_id=appeal.id) }}">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <label class="form-label fw-bold text-success">Response message (optional):</label>
+                                            <textarea name="admin_response" class="form-control mb-2" rows="2"
+                                                placeholder="Reason for approval or message to user..."></textarea>
+                                            <button type="submit" class="btn btn-success btn-sm"
+                                                onclick="return confirm('Approve appeal for {{ appeal.user.username }}? This will lift their ban.')">
+                                                <i class="fas fa-check"></i> Approve &amp; Lift Ban
+                                            </button>
+                                        </form>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <form method="POST" action="{{ url_for('admin.reject_appeal', appeal_id=appeal.id) }}">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <label class="form-label fw-bold text-danger">Rejection reason (optional):</label>
+                                            <textarea name="admin_response" class="form-control mb-2" rows="2"
+                                                placeholder="Reason for rejection or message to user..."></textarea>
+                                            <button type="submit" class="btn btn-danger btn-sm"
+                                                onclick="return confirm('Reject appeal for {{ appeal.user.username }}?')">
+                                                <i class="fas fa-times"></i> Reject Appeal
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted">No pending appeals.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Security Info Section -->
     <div class="row mt-5">
         <div class="col-md-12">

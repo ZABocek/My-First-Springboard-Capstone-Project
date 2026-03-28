@@ -2,7 +2,7 @@
 import logging
 from datetime import datetime, timedelta
 
-from flask import Blueprint, render_template, redirect, url_for, session, flash
+from flask import Blueprint, render_template, redirect, url_for, session, flash, request
 
 from models import db, User, Cocktail, AdminMessage, UserAppeal, AdminAuditLog
 from forms import AdminForm, AdminMessageForm
@@ -207,7 +207,7 @@ def respond_to_message(message_id):
         message.admin_response_date = datetime.utcnow()
         message.is_read = True
         db.session.commit()
-        flash("Response sent to user.", "success")
+        flash("Response saved.", "success")
         return redirect(url_for('admin.admin_messages'))
     # Mark the message as read as soon as an admin opens it.
     message.is_read = True
@@ -219,11 +219,15 @@ def respond_to_message(message_id):
 @admin_required
 def approve_appeal(appeal_id):
     appeal = UserAppeal.query.get_or_404(appeal_id)
+    if appeal.status != 'pending':
+        flash("This appeal has already been decided.", "warning")
+        return redirect(url_for('admin.admin_panel'))
     user = User.query.get_or_404(appeal.user_id)
     # Clear both ban fields so the user can log in normally again.
     user.ban_until = None
     user.is_permanently_banned = False
     appeal.status = 'approved'
+    appeal.admin_response = request.form.get('admin_response', '').strip() or None
     appeal.admin_response_date = datetime.utcnow()
     _log_admin_action("approve_appeal", target_user_id=user.id,
                       details=f"Approved appeal #{appeal_id} for {user.username}")
@@ -242,11 +246,21 @@ def approve_appeal(appeal_id):
 @admin_required
 def reject_appeal(appeal_id):
     appeal = UserAppeal.query.get_or_404(appeal_id)
+    if appeal.status != 'pending':
+        flash("This appeal has already been decided.", "warning")
+        return redirect(url_for('admin.admin_panel'))
+    user = User.query.get_or_404(appeal.user_id)
     appeal.status = 'rejected'
+    appeal.admin_response = request.form.get('admin_response', '').strip() or None
     appeal.admin_response_date = datetime.utcnow()
     _log_admin_action("reject_appeal", target_user_id=appeal.user_id,
                       details=f"Rejected appeal #{appeal_id}")
     db.session.commit()
+    try:
+        from services.email_service import send_appeal_rejection_email
+        send_appeal_rejection_email(user)
+    except Exception as e:
+        logging.error(f"Error sending appeal rejection email: {e}")
     flash("Appeal rejected.", "warning")
     return redirect(url_for('admin.admin_panel'))
 

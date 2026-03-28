@@ -6,56 +6,52 @@ Run this script ONCE to add the email verification columns to your database
 """
 
 def migrate_database():
-    """Migrate database to add email verification columns."""
+    """Check email verification column status and guide correct migration."""
     print("=" * 60)
-    print("Email Verification Database Migration")
+    print("Email Verification Migration Status Check")
     print("=" * 60)
-    
+    print()
+    print("⚠  IMPORTANT: db.create_all() does NOT add columns to existing tables.")
+    print("   SQLAlchemy's create_all() only creates tables that do not yet exist.")
+    print("   It cannot ALTER an existing 'user' table to add new columns.")
+    print()
+    print("   To apply the email verification schema changes to an existing DB:")
+    print()
+    print("       flask db upgrade")
+    print()
+    print("   To set up a brand-new database from scratch, use:")
+    print()
+    print("       python init_db.py")
+    print()
     try:
-        from app import app, db
-        
+        from app import app
+        from models import User
         with app.app_context():
-            print("\n📋 Starting database migration...")
-            print("Creating tables with new email verification columns...")
-            
-            # Create all tables (this will add the new columns)
-            db.create_all()
-            
-            print("✅ Database migration completed successfully!")
-            print("\n📊 Summary:")
-            print("   - Added 'is_email_verified' column (default: False)")
-            print("   - Added 'email_verified_at' column (timestamp)")
-            print("\n🔍 Checking existing users...")
-            
-            from models import User
-            user_count = User.query.count()
-            unverified_count = User.query.filter_by(is_email_verified=False).count()
-            verified_count = User.query.filter_by(is_email_verified=True).count()
-            
-            print(f"   - Total users: {user_count}")
-            print(f"   - Unverified: {unverified_count}")
-            print(f"   - Verified: {verified_count}")
-            
-            if unverified_count > 0:
-                print("\n⚠️  IMPORTANT:")
-                print(f"   You have {unverified_count} existing users without verified emails.")
-                print("   These users will need to verify their email before logging in.")
-                print("\n   Alternative: To grandfather existing users, run:")
-                print("   python migrate_email_verification.py --grandfather-existing-users")
-            
-            print("\n✨ Migration complete! You can now:")
-            print("   1. Test registration at /register")
-            print("   2. Check verification emails")
-            print("   3. Verify your email with the link")
-            print("   4. Log in with verified account")
-            
+            try:
+                user_count = User.query.count()
+                unverified_count = User.query.filter_by(is_email_verified=False).count()
+                verified_count = User.query.filter_by(is_email_verified=True).count()
+                print("✅ The email verification columns are present in your database.")
+                print(f"   Total users:       {user_count}")
+                print(f"   Verified users:    {verified_count}")
+                print(f"   Unverified users:  {unverified_count}")
+                if unverified_count > 0:
+                    print()
+                    print("⚠️  NOTICE:")
+                    print(f"   {unverified_count} user(s) have not yet verified their email.")
+                    print("   To grandfather all existing users, run:")
+                    print("   python migrate_email_verification.py --grandfather-existing-users")
+            except Exception as e:
+                print(f"❌ Could not query email verification columns: {e}")
+                print()
+                print("   The columns likely do not exist yet. Run:")
+                print()
+                print("       flask db upgrade")
     except Exception as e:
-        print(f"\n❌ Migration failed: {e}")
-        print("\nTroubleshooting:")
-        print("   1. Ensure your app.py can be imported")
-        print("   2. Check that Flask and SQLAlchemy are installed")
-        print("   3. Verify DATABASE_URL is set correctly")
-        raise
+        print(f"❌ Could not connect to the database: {e}")
+        print()
+        print("   Ensure your .env file is configured and your virtualenv is active,")
+        print("   then run: flask db upgrade")
 
 def grandfather_existing_users():
     """Mark all existing users as email verified."""

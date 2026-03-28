@@ -37,16 +37,12 @@ body {
   
   /* Homepage Styles */
   
-  .display-4 {
+  /* Hero jumbotron heading — use .cc-hero-heading instead of overriding
+     Bootstrap's .display-4 utility so other display-4 elements (e.g. admin
+     stat numbers inside .text-white cards) are not unintentionally affected. */
+  .cc-hero-heading {
     color: #fff;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-  }
-  
-  .mt-5 {
-    background-color: rgba(255, 255, 255, 0.8);
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
   }
   
   .btn-info {

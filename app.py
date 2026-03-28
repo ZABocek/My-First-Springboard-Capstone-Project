@@ -121,6 +121,13 @@ def create_app(config_overrides=None):
     }
 
     @app.before_request
+    def redirect_to_https():
+        """Redirect HTTP to HTTPS when SECURE_SSL_REDIRECT is enabled in config."""
+        if SECURE_SSL_REDIRECT and not request.is_secure:
+            url = request.url.replace('http://', 'https://', 1)
+            return redirect(url, code=301)
+
+    @app.before_request
     def enforce_ban():
         endpoint = request.endpoint
         if endpoint is None or endpoint in _BAN_EXEMPT:
@@ -162,7 +169,7 @@ def create_app(config_overrides=None):
             "default-src 'self'; "
             "script-src 'self' https://code.jquery.com https://cdn.jsdelivr.net "
             "https://stackpath.bootstrapcdn.com; "
-            "style-src 'self' https://stackpath.bootstrapcdn.com "
+            "style-src 'self' https://cdn.jsdelivr.net https://stackpath.bootstrapcdn.com "
             "https://cdnjs.cloudflare.com 'unsafe-inline'; "
             "font-src 'self' https://cdnjs.cloudflare.com "
             "https://stackpath.bootstrapcdn.com; "
