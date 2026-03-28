@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Cocktail Chronicles</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+      crossorigin="anonymous"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <link rel="stylesheet" href="/static/app.css" />
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-YvpcrYf0tY3lHB60NNkmXc4s9bIOgUxi8T/jzmE8GIwuBVCLaFmQiCJOCIwNNhTX"
+      crossorigin="anonymous"
+    ></script>
+  </head>
+
+  <body>
+    <!-- ... rest of your base.html ... -->
+
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+      <a class="navbar-brand" href="/">COCKTAIL CHRONICLES</a>
+      <ul class="navbar-nav navbar-nav w-100">
+        {% if 'user_id' not in session %}
+        <li class="nav-item ms-auto"><a class="nav-link" href="/login">Login</a></li>
+        {% else %}
+        <!-- The new links for logged in users -->
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('cocktails.list_cocktails') }}"
+            >Cocktails List</a
+          >
+        </li>
+        <li class="nav-item">
+          <a
+            class="nav-link"
+            href="{{ url_for('users.profile', user_id=session['user_id']) }}"
+            >My Profile</a
+          >
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('cocktails.add_api_cocktails') }}"
+            >Add API Cocktails</a
+          >
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('cocktails.add_original_cocktails') }}"
+            >Add Original Cocktails</a
+          >
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('cocktails.my_cocktails') }}"
+            >My Cocktails</a
+          >
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('admin.admin_unlock') }}"
+            >Admin</a
+          >
+        </li>
+        <li class="nav-item ms-auto">
+          <form method="POST" action="/logout" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-link nav-link p-0">Logout</button>
+          </form>
+        </li>
+        {% endif %}
+      </ul>
+    </nav>
+
+    <!-- ... rest of your base.html ... -->
+
+    <div class="container" style="margin-top: 2em">
+      {% for category, msg in get_flashed_messages(with_categories=true) %}
+      <div class="alert alert-{{ 'danger' if category in ('error', 'danger') else category }}">{{ msg }}</div>
+      {% endfor %} {% block content %} {% endblock %}
+    </div>
+  </body>
+</html>
