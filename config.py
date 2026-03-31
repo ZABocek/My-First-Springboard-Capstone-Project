@@ -60,3 +60,8 @@ COCKTAILDB_API_KEY: str = os.environ.get('COCKTAILDB_API_KEY', '1')
 # ── Rate limiting (Flask-Limiter) ─────────────────────────────────────────────
 # Set to False in test environments to disable rate limiting.
 RATELIMIT_ENABLED: bool = os.environ.get('RATELIMIT_ENABLED', 'True').lower() == 'true'
+
+# ── Redis (Celery broker + result backend + cache) ────────────────────────────
+# Heroku / Render inject this automatically when a Redis add-on is attached.
+# For local development, run: redis-server (default port 6379).
+REDIS_URL: str = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')

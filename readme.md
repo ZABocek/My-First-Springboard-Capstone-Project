@@ -25,6 +25,7 @@ The codebase uses Flask's **application factory** pattern with **blueprints** an
 
 ```
 app.py                  # create_app() factory — wires extensions and blueprints
+celery_worker.py        # Celery worker entry point (celery -A celery_worker worker)
 config.py               # All environment-variable-driven configuration
 decorators.py           # login_required and admin_required decorators
 models.py               # SQLAlchemy models (User, Cocktail, Ingredient, …)
@@ -40,7 +41,7 @@ blueprints/
     users.py            # /, /users/profile/*, /user/messages, /appeal, /appeal/status
 
 services/
-    email_service.py    # Outbound email helpers (verification, ban notices, lifted notices)
+    email_service.py    # Outbound email helpers — enqueues Celery tasks
     cocktail_service.py # Image upload/validation, image URL resolution, cocktail storage
 
 migrations/             # Flask-Migrate / Alembic migration scripts
@@ -112,6 +113,7 @@ To stop the server, press **CTRL+C** in the console window that opened.
     MAIL_DEFAULT_SENDER=noreply@cocktaildb.com
     RATELIMIT_ENABLED=True
     COCKTAILDB_API_KEY=1
+    REDIS_URL=redis://localhost:6379/0
     ```
     Generate a secure `SECRET_KEY` with:
     ```bash
@@ -180,7 +182,13 @@ Always run `flask db upgrade` after pulling changes that include new migration f
 ## Detailed File Descriptions
 
 ### `app.py`
-Application factory (`create_app()`). Configures the Flask app, registers extensions (SQLAlchemy, Flask-Migrate, Flask-Mail, CSRFProtect, DebugToolbar), wires up the four blueprints, and attaches a security-headers `after_request` hook. A module-level `app = create_app()` is kept for Gunicorn / `run_app.py` compatibility.
+Application factory (`create_app()`). Configures the Flask app, registers extensions (SQLAlchemy, Flask-Migrate, Flask-Mail, CSRFProtect, Flask-Caching with RedisCache, Celery, DebugToolbar), wires up the four blueprints, and attaches a security-headers `after_request` hook. The private `_celery_init(app)` helper binds the global Celery singleton to the app's Redis broker/backend and installs a `_FlaskTask` base class so every task body runs inside a pushed application context. A module-level `app = create_app()` is kept for Gunicorn / `run_app.py` compatibility.
+
+### `celery_worker.py`
+Worker entry point. Calls `create_app()` (which configures Celery via `_celery_init`) and then imports `services.email_service` to register all tasks before the worker begins consuming queue messages. Start a local worker with:
+```bash
+celery -A celery_worker worker --loglevel=info
+```
 
 ### `config.py`
 Reads all sensitive and environment-specific values from environment variables via `python-dotenv`, with safe development defaults. Imported by `app.py` (core Flask/mail/session config), `blueprints/admin.py` (`ADMIN_PASSWORD_KEY`), and `cocktaildb_api.py` (`COCKTAILDB_API_KEY`). The file contains **no hardcoded secrets** and is safe to track in version control; real secrets belong in `.env`.
@@ -208,7 +216,7 @@ Async API client for [TheCocktailDB](https://www.thecocktaildb.com/api.php). Pro
 
 ### `blueprints/auth.py`
 Handles the full authentication lifecycle:
-- `register` — stages the user row, generates the signed token, commits only after the token is successfully created (so `rollback()` actually reverts the staged row if token generation fails), then dispatches the verification email in a background thread. Because SMTP delivery is asynchronous, logging records any background failure; users can request a resend from the verification-pending page.
+- `register` — stages the user row, generates the signed token, commits only after the token is successfully created (so `rollback()` actually reverts the staged row if token generation fails), then enqueues the verification email as a Celery task. Because SMTP delivery is asynchronous, any delivery failure is logged by the worker; users can request a resend from the verification-pending page.
 - `verify_email` — decodes the signed token and stamps `email_verified_at`.
 - `verification_pending` / `resend_verification` — manages the unverified-user waiting state.
 - `login` — authenticates, then checks email verification and ban status before setting the session.
@@ -249,7 +257,7 @@ User-facing non-auth routes:
 - `appeal_status` — ban-exempt stable landing page shown after a banned user submits (or already has) a pending appeal; prevents the `enforce_ban → submit_appeal → enforce_ban` redirect loop.
 
 ### `services/email_service.py`
-Centralised outbound email dispatch. Emails are sent in background **daemon threads** so the HTTP request returns immediately without waiting for the SMTP round-trip. Each public function accepts only a `User` object (and a token where needed), builds the body via `helpers.py`, then hands the assembled `Message` to the internal `_dispatch()` helper. Functions: `send_verification_email`, `send_resend_verification_email`, `send_ban_notification_email`, `send_ban_lifted_email`.
+Centralised outbound email dispatch via a **Celery task queue**. The single `@celery.task` (`_deliver`) accepts plain JSON-serialisable arguments (subject, recipients, body), then sends the assembled `Message` via Flask-Mail inside the worker's pushed application context. Each public helper builds the email body via `helpers.py` and calls `_deliver.delay(...)` so the HTTP request returns immediately without waiting for the SMTP round-trip. Any delivery failure is logged by the worker and the task is marked `FAILURE` so it can be inspected or retried. Functions: `send_verification_email`, `send_resend_verification_email`, `send_ban_notification_email`, `send_ban_lifted_email`, `send_appeal_rejection_email`.
 
 ### `services/cocktail_service.py`
 Cocktail storage and image handling:
@@ -321,6 +329,8 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 - [Flask-Migrate](https://flask-migrate.readthedocs.io/) for database schema migrations.
 - [Flask-Bcrypt](https://flask-bcrypt.readthedocs.io/) for password hashing.
 - [Flask-Mail](https://pythonhosted.org/Flask-Mail/) for transactional email.
+- [Celery](https://docs.celeryq.dev/) for the durable background task queue.
+- [Redis](https://redis.io/) as the Celery broker, result backend, and shared cache.
 
 ---
 

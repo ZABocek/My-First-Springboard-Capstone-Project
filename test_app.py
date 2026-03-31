@@ -320,8 +320,8 @@ class FlaskTestCase(unittest.TestCase):
     # ------------------------------------------------------------------
 
     def test_registration_email_sent_async(self):
-        """Registration dispatches a background email without blocking."""
-        with patch('services.email_service._dispatch') as mock_dispatch:
+        """Registration enqueues a background email task without blocking."""
+        with patch('services.email_service._deliver.delay') as mock_delay:
             resp = self.client.post('/register', data={
                 'username': 'emailuser',
                 'email': 'email@example.com',
@@ -329,7 +329,7 @@ class FlaskTestCase(unittest.TestCase):
                 'confirm': 'Emailpass1',
             }, follow_redirects=True)
             self.assertEqual(resp.status_code, 200)
-            mock_dispatch.assert_called_once()
+            mock_delay.assert_called_once()
 
     # ------------------------------------------------------------------
     # Password strength validation

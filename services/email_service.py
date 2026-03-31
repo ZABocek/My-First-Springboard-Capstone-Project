@@ -1,93 +1,95 @@
 """Service layer for all outbound email sending.
 
-Emails are dispatched in background daemon threads so the HTTP request
-returns immediately without waiting for the SMTP round-trip.
+Email messages are serialised as JSON and dispatched to a Celery worker
+so the HTTP request returns immediately without waiting for the SMTP
+round-trip.  The worker runs under a pushed Flask application context
+(configured in ``app._celery_init``), giving it full access to
+Flask-Mail and the rest of the app.
 """
 import logging
-import threading
 
-from flask import url_for, current_app
+from flask import url_for
 from flask_mail import Message
 
-
-# ---------------------------------------------------------------------------
-# Background-send helpers
-# ---------------------------------------------------------------------------
-
-def _deliver(app, msg):
-    """Send *msg* inside a fresh app context (runs in a daemon thread)."""
-    with app.app_context():
-        from extensions import mail as _mail
-        try:
-            _mail.send(msg)
-        except Exception as exc:
-            logging.error("Background email send failed: %s", exc)
-
-
-def _dispatch(msg):
-    """Dispatch *msg* to a daemon thread; call from within a request context."""
-    app = current_app._get_current_object()  # unwrap proxy before crossing thread boundary
-    t = threading.Thread(target=_deliver, args=(app, msg), daemon=True)
-    t.start()
+from extensions import celery
 
 
 # ---------------------------------------------------------------------------
-# Public send functions — no longer accept a ``mail`` argument
+# Celery task — runs in a worker process under the Flask app context
+# ---------------------------------------------------------------------------
+
+@celery.task(name='email_service.deliver', ignore_result=True)
+def _deliver(subject, recipients, body):
+    """Send a pre-built plain-text email via Flask-Mail.
+
+    All arguments are plain JSON-serialisable types so the task is
+    compatible with Celery's default JSON serialiser.
+    """
+    from extensions import mail
+    try:
+        mail.send(Message(subject=subject, recipients=recipients, body=body))
+    except Exception as exc:
+        logging.error("Celery email delivery failed: %s", exc)
+        raise  # propagate so Celery marks the task as FAILURE
+
+
+# ---------------------------------------------------------------------------
+# Public send functions — called from request context; enqueue the task
 # ---------------------------------------------------------------------------
 
 def send_verification_email(user, token):
-    """Send an email-verification message to a newly registered user."""
+    """Queue an email-verification message for a newly registered user."""
     from helpers import generate_email_verification_email
     link = url_for('auth.verify_email', token=token, _external=True)
     body = generate_email_verification_email(user.username, link)
-    _dispatch(Message(
+    _deliver.delay(
         subject="Verify Your Email - Cocktail Chronicles",
         recipients=[user.email],
         body=body,
-    ))
+    )
 
 
 def send_resend_verification_email(user, token):
-    """Re-send an email-verification message to an unverified user."""
+    """Queue a re-send of the email-verification message."""
     from helpers import generate_email_resend_verification_email
     link = url_for('auth.verify_email', token=token, _external=True)
     body = generate_email_resend_verification_email(user.username, link)
-    _dispatch(Message(
+    _deliver.delay(
         subject="Verify Your Email - Cocktail Chronicles (Resend)",
         recipients=[user.email],
         body=body,
-    ))
+    )
 
 
 def send_ban_notification_email(user):
-    """Notify a user that their account has been suspended and they may appeal."""
+    """Queue a suspension notice with an appeal link."""
     from helpers import generate_ban_appeal_email
     appeal_link = url_for('users.submit_appeal', _external=True)
     body = generate_ban_appeal_email(user.username, appeal_link)
-    _dispatch(Message(
+    _deliver.delay(
         subject='Account Suspension Notice - Appeal Process Available',
         recipients=[user.email],
         body=body,
-    ))
+    )
 
 
 def send_ban_lifted_email(user):
-    """Notify a user that their suspension has been lifted."""
+    """Queue a notification that the user's suspension has been lifted."""
     from helpers import generate_ban_lifted_email
     body = generate_ban_lifted_email(user.username)
-    _dispatch(Message(
+    _deliver.delay(
         subject='Your Account Suspension Has Been Lifted',
         recipients=[user.email],
         body=body,
-    ))
+    )
 
 
 def send_appeal_rejection_email(user):
-    """Notify a user that their ban appeal has been rejected."""
+    """Queue a notification that the user's ban appeal was rejected."""
     from helpers import generate_appeal_rejection_email
     body = generate_appeal_rejection_email(user.username)
-    _dispatch(Message(
+    _deliver.delay(
         subject='Your Ban Appeal Has Been Reviewed',
         recipients=[user.email],
         body=body,
-    ))
+    )

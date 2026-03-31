@@ -26,8 +26,31 @@ from config import (
     MAIL_PASSWORD,
     MAIL_DEFAULT_SENDER,
     RATELIMIT_ENABLED,
+    REDIS_URL,
 )
-from extensions import csrf, mail, migrate, limiter, cache
+from extensions import csrf, mail, migrate, limiter, cache, celery
+
+
+def _celery_init(app):
+    """Wire the global Celery singleton to Flask's app context.
+
+    Tasks decorated with ``@celery.task`` will automatically run inside
+    a pushed application context, giving them access to ``current_app``,
+    Flask-Mail, SQLAlchemy, etc.
+    """
+    class _FlaskTask(celery.Task):
+        def __call__(self, *args, **kwargs):
+            with app.app_context():
+                return self.run(*args, **kwargs)
+
+    celery.Task = _FlaskTask
+    celery.config_from_object({
+        'broker_url': app.config['REDIS_URL'],
+        'result_backend': app.config['REDIS_URL'],
+        'task_serializer': 'json',
+        'result_serializer': 'json',
+        'accept_content': ['json'],
+    })
 
 
 def create_app(config_overrides=None):
@@ -75,6 +98,7 @@ def create_app(config_overrides=None):
     app.config['MAIL_PASSWORD'] = MAIL_PASSWORD
     app.config['MAIL_DEFAULT_SENDER'] = MAIL_DEFAULT_SENDER
     app.config['RATELIMIT_ENABLED'] = RATELIMIT_ENABLED
+    app.config['REDIS_URL'] = REDIS_URL
 
     # Allow tests / scripts to override any config key.
     if config_overrides:
@@ -88,7 +112,13 @@ def create_app(config_overrides=None):
     mail.init_app(app)
     migrate.init_app(app, db)
     limiter.init_app(app)
-    cache.init_app(app, config={'CACHE_TYPE': 'SimpleCache', 'CACHE_DEFAULT_TIMEOUT': 600})
+    # RedisCache is shared across all worker processes (unlike SimpleCache).
+    cache.init_app(app, config={
+        'CACHE_TYPE': 'RedisCache',
+        'CACHE_DEFAULT_TIMEOUT': 600,
+        'CACHE_REDIS_URL': app.config['REDIS_URL'],
+    })
+    _celery_init(app)
 
     if app.config['DEBUG']:
         from flask_debugtoolbar import DebugToolbarExtension

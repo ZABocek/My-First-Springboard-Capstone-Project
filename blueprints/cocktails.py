@@ -25,7 +25,7 @@ cocktails_bp = Blueprint('cocktails', __name__)
 
 @cache.cached(timeout=600, key_prefix='all_cocktails')
 def _cached_cocktail_list():
-    """Fetch the full API catalogue once; cache for 10 minutes (SimpleCache)."""
+    """Fetch the full API catalogue once; cache for 10 minutes (RedisCache)."""
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:

@@ -45,9 +45,9 @@ def register():
             token = user.generate_email_verification_token()
             # Commit only after the token is successfully generated.
             db.session.commit()
-            # Dispatch the verification email in a background daemon thread.
-            # NOTE: actual SMTP delivery is asynchronous — if the background
-            # thread later fails (e.g. SMTP unreachable), the error is logged
+            # Enqueue the verification email as a Celery task.
+            # NOTE: actual SMTP delivery is asynchronous — if the Celery
+            # worker later fails (e.g. SMTP unreachable), the error is logged
             # but the user row is already committed.  Users can request a
             # resend from the verification-pending page.
             send_verification_email(user, token)
