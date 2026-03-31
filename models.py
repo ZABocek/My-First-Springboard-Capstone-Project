@@ -69,7 +69,7 @@ class User(db.Model):
     created_at = db.Column(
         db.DateTime,
         nullable=False,
-        default=datetime.utcnow
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
     )
     
     is_email_verified = db.Column(
@@ -147,7 +147,7 @@ class User(db.Model):
         """Mark the user's email as verified."""
         try:
             self.is_email_verified = True
-            self.email_verified_at = datetime.now(timezone.utc)
+            self.email_verified_at = datetime.now(timezone.utc).replace(tzinfo=None)
             db.session.commit()
             logging.debug(f"Email verified for user: {self}")
         except Exception as e:
@@ -351,7 +351,7 @@ class AdminMessage(db.Model):
     created_at = db.Column(
         db.DateTime,
         nullable=False,
-        default=datetime.utcnow
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
     )
     
     is_read = db.Column(
@@ -398,7 +398,7 @@ class UserAppeal(db.Model):
     created_at = db.Column(
         db.DateTime,
         nullable=False,
-        default=datetime.utcnow
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
     )
     
     status = db.Column(
@@ -464,7 +464,7 @@ class AdminAuditLog(db.Model):
     created_at = db.Column(
         db.DateTime,
         nullable=False,
-        default=datetime.utcnow,
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
     )
 
     def __repr__(self):

@@ -20,7 +20,6 @@ itsdangerous==2.1.2
 click==8.1.6
 backoff==2.2.1
 Pillow==10.0.0
-Flask-Uploads==0.2.1
 Flask-Mail==0.9.1
 celery[redis]>=5.3
 redis>=5.0

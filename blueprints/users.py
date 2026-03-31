@@ -1,7 +1,7 @@
 """Users blueprint: homepage, profile, messaging, ban appeals."""
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from flask import Blueprint, render_template, redirect, url_for, session, flash, request
 
@@ -9,6 +9,7 @@ from models import db, User, Ingredient, UserFavoriteIngredients, AdminMessage, 
 from forms import PreferenceForm, UserFavoriteIngredientForm, UserMessageForm, AppealForm
 from decorators import login_required
 from cocktaildb_api import list_ingredients
+from extensions import cache
 
 users_bp = Blueprint('users', __name__)
 
@@ -36,7 +37,11 @@ def profile(user_id):
     preference_form = PreferenceForm()
     ingredient_form = UserFavoriteIngredientForm()
 
-    ingredients_from_api = asyncio.run(list_ingredients())
+    ingredients_from_api = cache.get('api_ingredients_list')
+    if ingredients_from_api is None:
+        ingredients_from_api = asyncio.run(list_ingredients())
+        if ingredients_from_api:
+            cache.set('api_ingredients_list', ingredients_from_api, timeout=3600)
     if ingredients_from_api:
         ingredient_form.ingredient.choices = [
             (i['strIngredient1'], i['strIngredient1'])
@@ -203,7 +208,7 @@ def submit_appeal():
 
     # Only currently-banned users may access the appeal form.
     if not (user.is_permanently_banned or
-            (user.ban_until and user.ban_until > datetime.utcnow())):
+            (user.ban_until and user.ban_until > datetime.now(timezone.utc).replace(tzinfo=None))):
         flash("Your account is not currently banned.", "info")
         return redirect(url_for('users.homepage'))
 

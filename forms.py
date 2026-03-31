@@ -66,21 +66,6 @@ class IngredientForm(FlaskForm):
     measure = StringField('Measure', validators=[DataRequired()])
     # String field for ingredient measure with data required validation
 
-# Define a form for cocktail details
-class CocktailForm(FlaskForm):
-    pre_existing_cocktail = SelectField('Pre-existing Cocktail', coerce=int)
-    # Select field for choosing a pre-existing cocktail
-    name = StringField('Cocktail Name', validators=[DataRequired()])
-    # String field for cocktail name with data required validation
-    ingredients = FieldList(FormField(IngredientForm), min_entries=1, max_entries=10)
-    # Field list for multiple ingredient forms
-    instructions = TextAreaField('Instructions')
-    # Text area field for cocktail instructions
-    submit = SubmitField('Add Cocktail')
-    # Submit button for adding the cocktail
-    image = FileField('Image', validators=[FileAllowed(['jpg', 'png', 'jpeg'], 'Images only!')])
-    # File field for uploading an image with allowed file type validation
-
 # Define a form for listing cocktails
 class ListCocktailsForm(FlaskForm):
     cocktail = SelectField('Select Cocktail', coerce=int)

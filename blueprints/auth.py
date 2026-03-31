@@ -1,6 +1,6 @@
 """Authentication blueprint: register, login, logout, email verification."""
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from flask import Blueprint, render_template, redirect, url_for, session, flash
 
@@ -183,7 +183,7 @@ def login():
                 return redirect(url_for('users.submit_appeal'))
 
             # Temporary bans are also blocked; the expiry date is shown to the user.
-            if user.ban_until and user.ban_until > datetime.utcnow():
+            if user.ban_until and user.ban_until > datetime.now(timezone.utc).replace(tzinfo=None):
                 flash(
                     f"Your account is suspended until "
                     f"{user.ban_until.strftime('%B %d, %Y')}. "

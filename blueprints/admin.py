@@ -1,6 +1,6 @@
 """Admin blueprint: panel, user management, messaging, ban appeals."""
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from flask import Blueprint, render_template, redirect, url_for, session, flash, request
 
@@ -61,6 +61,18 @@ def admin_unlock():
     if user and user.is_admin:
         return redirect(url_for('admin.admin_panel'))
 
+    # Bootstrap guard: once any admin account exists, this self-promotion
+    # route is disabled.  Additional admins must be promoted by an existing
+    # admin via the panel's "Promote" action.  This prevents the unlock key
+    # from granting admin access in an already-provisioned system.
+    if User.query.filter_by(is_admin=True).count() > 0:
+        flash(
+            "Admin provisioning via the unlock key is only available before "
+            "the first admin is created. Ask an existing admin to grant access.",
+            "warning",
+        )
+        return redirect(url_for('users.homepage'))
+
     form = AdminForm()
     if form.validate_on_submit():
         from config import ADMIN_PASSWORD_KEY
@@ -100,7 +112,7 @@ def admin_panel():
         stats=stats,
         users=users,
         appeals=appeals,
-        now=datetime.utcnow(),
+        now=datetime.now(timezone.utc).replace(tzinfo=None),
     )
 
 
@@ -139,7 +151,7 @@ def ban_user(user_id):
         return redirect(url_for('admin.admin_panel'))
     user = User.query.get_or_404(user_id)
     # Set a rolling 365-day expiry from the moment the ban is applied.
-    user.ban_until = datetime.utcnow() + timedelta(days=365)
+    user.ban_until = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=365)
     _log_admin_action("ban_user_1yr", target_user_id=user_id,
                       details=f"Banned {user.username} for one year")
     db.session.commit()
@@ -204,7 +216,7 @@ def respond_to_message(message_id):
     if form.validate_on_submit():
         # Attach the admin's reply and timestamp it.
         message.admin_response = form.message.data
-        message.admin_response_date = datetime.utcnow()
+        message.admin_response_date = datetime.now(timezone.utc).replace(tzinfo=None)
         message.is_read = True
         db.session.commit()
         flash("Response saved.", "success")
@@ -228,7 +240,7 @@ def approve_appeal(appeal_id):
     user.is_permanently_banned = False
     appeal.status = 'approved'
     appeal.admin_response = request.form.get('admin_response', '').strip() or None
-    appeal.admin_response_date = datetime.utcnow()
+    appeal.admin_response_date = datetime.now(timezone.utc).replace(tzinfo=None)
     _log_admin_action("approve_appeal", target_user_id=user.id,
                       details=f"Approved appeal #{appeal_id} for {user.username}")
     db.session.commit()
@@ -252,7 +264,7 @@ def reject_appeal(appeal_id):
     user = User.query.get_or_404(appeal.user_id)
     appeal.status = 'rejected'
     appeal.admin_response = request.form.get('admin_response', '').strip() or None
-    appeal.admin_response_date = datetime.utcnow()
+    appeal.admin_response_date = datetime.now(timezone.utc).replace(tzinfo=None)
     _log_admin_action("reject_appeal", target_user_id=appeal.user_id,
                       details=f"Rejected appeal #{appeal_id}")
     db.session.commit()

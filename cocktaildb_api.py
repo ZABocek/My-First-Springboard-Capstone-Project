@@ -114,13 +114,6 @@ async def get_combined_cocktails_list():
     # Return the sorted list of distinct cocktails by their names
     return sorted(list(distinct_cocktails), key=lambda x: x[1])
 
-# Asynchronous function to fetch and prepare the list of cocktails
-async def fetch_and_prepare_cocktails():
-    # Get the combined list of cocktails
-    cocktails = await get_combined_cocktails_list()
-    # Further process the list if needed before returning it
-    return cocktails
-
 # Function to get the details of a cocktail by its ID
 @backoff.on_exception(backoff.expo, requests.exceptions.RequestException, max_tries=3)
 def get_cocktail_detail(cocktail_id):

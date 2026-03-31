@@ -6,7 +6,7 @@ blueprints together so that ``app`` remains importable for
 gunicorn / wsgi callsites and for blueprint modules that need ``mail``.
 """
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 from flask import Flask, session, redirect, url_for, flash, request
 from models import db, connect_db, User
@@ -175,7 +175,7 @@ def create_app(config_overrides=None):
                 "danger",
             )
             return redirect(url_for('users.submit_appeal'))
-        if user.ban_until and user.ban_until > datetime.utcnow():
+        if user.ban_until and user.ban_until > datetime.now(timezone.utc).replace(tzinfo=None):
             flash(
                 f"Your account is suspended until "
                 f"{user.ban_until.strftime('%B %d, %Y')}. "
