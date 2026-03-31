@@ -295,9 +295,11 @@ def add_original_cocktails():
 @cocktails_bp.route('/static/uploads/<filename>')
 def uploaded_file(filename):
     # Serve user-uploaded images from the configured uploads directory.
-    return send_from_directory(
-        current_app.config['UPLOADED_PHOTOS_DEST'], filename
+    upload_dir = os.path.join(
+        current_app.root_path,
+        current_app.config['UPLOADED_PHOTOS_DEST'],
     )
+    return send_from_directory(upload_dir, filename)
 
 
 @cocktails_bp.route('/edit-cocktail/<int:cocktail_id>', methods=['GET', 'POST'])
