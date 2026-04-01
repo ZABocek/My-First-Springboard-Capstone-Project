@@ -1,6 +1,7 @@
 """Cocktail blueprint: browse, add, edit, delete cocktails."""
 import asyncio
 import logging
+import os
 
 from flask import (
     Blueprint, render_template, redirect, url_for,
@@ -116,7 +117,7 @@ def add_api_cocktails():
 def my_cocktails():
     user_id = session.get('user_id')
 
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     if not user:
         flash('User not found.', 'danger')
         return redirect(url_for('auth.login'))
@@ -147,12 +148,12 @@ def my_cocktails():
 def delete_cocktail(cocktail_id):
     user_id = session.get('user_id')
 
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     if not user:
         flash('User not found.', 'danger')
         return redirect(url_for('auth.login'))
 
-    cocktail = Cocktail.query.get(cocktail_id)
+    cocktail = db.session.get(Cocktail, cocktail_id)
     if not cocktail:
         flash('Cocktail not found.', 'danger')
         return redirect(url_for('cocktails.my_cocktails'))

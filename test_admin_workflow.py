@@ -106,7 +106,7 @@ def test_admin_workflow():
         print("[PASS] Correct error message displayed")
         
         # Check user is still not admin
-        user = User.query.get(test_user.id)
+        user = db.session.get(User, test_user.id)
         assert user.is_admin == False, "User should not be admin yet"
         print("[PASS] User is still not admin")
         

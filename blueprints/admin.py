@@ -57,7 +57,7 @@ def admin_unlock():
         return redirect(url_for('auth.login'))
 
     # Redirect already-authenticated admins straight to the panel.
-    user = User.query.get(session["user_id"])
+    user = db.session.get(User, session["user_id"])
     if user and user.is_admin:
         return redirect(url_for('admin.admin_panel'))
 

@@ -1,6 +1,6 @@
 from functools import wraps
 from flask import session, flash, redirect, url_for
-from models import User
+from models import db, User
 
 
 def login_required(f):
@@ -23,7 +23,7 @@ def admin_required(f):
         if "user_id" not in session:
             flash("You must be logged in to access this page.", "danger")
             return redirect(url_for('auth.login'))
-        user = User.query.get(session["user_id"])
+        user = db.session.get(User, session["user_id"])
         if not user or not user.is_admin:
             flash("Admin access required.", "danger")
             return redirect(url_for('users.homepage'))

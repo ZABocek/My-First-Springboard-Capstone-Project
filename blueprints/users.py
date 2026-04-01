@@ -28,7 +28,7 @@ def profile(user_id):
     current_user_id = session['user_id']
     # Allow admins to view and edit any profile; regular users may only touch their own.
     if current_user_id != user_id:
-        current_user_obj = User.query.get(current_user_id)
+        current_user_obj = db.session.get(User, current_user_id)
         if not current_user_obj or not current_user_obj.is_admin:
             flash('You do not have permission to edit this profile.', 'danger')
             return redirect(url_for('users.homepage'))
@@ -120,7 +120,7 @@ def delete_favorite_ingredient(user_id, ingredient_id):
         flash('You do not have permission to delete this ingredient.', 'danger')
         return redirect(url_for('users.profile', user_id=user_id))
     # Allow admins to remove ingredients on any profile; users may only touch their own.
-    current_user_obj = User.query.get(current_user_id)
+    current_user_obj = db.session.get(User, current_user_id)
     if current_user_id != user_id and (not current_user_obj or not current_user_obj.is_admin):
         flash('You do not have permission to delete this ingredient.', 'danger')
         return redirect(url_for('users.profile', user_id=user_id))

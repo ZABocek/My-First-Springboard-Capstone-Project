@@ -165,7 +165,7 @@ def create_app(config_overrides=None):
         user_id = session.get('user_id')
         if not user_id:
             return
-        user = User.query.get(user_id)
+        user = db.session.get(User, user_id)
         if not user:
             return
         if user.is_permanently_banned:
