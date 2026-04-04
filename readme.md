@@ -24,7 +24,7 @@ Cocktail Chronicles is a Flask web application for discovering, creating, and sa
 The codebase uses Flask's **application factory** pattern with **blueprints** and a **service layer**.
 
 ```
-app.py                  # create_app() factory — wires extensions and blueprints
+app.py                  # create_app() factory — wires extensions, blueprints, watchdog endpoints
 celery_worker.py        # Celery worker entry point (celery -A celery_worker worker)
 config.py               # All environment-variable-driven configuration
 decorators.py           # login_required and admin_required decorators
@@ -32,6 +32,7 @@ models.py               # SQLAlchemy models (User, Cocktail, Ingredient, …)
 forms.py                # Flask-WTF form classes
 helpers.py              # Email body generators
 cocktaildb_api.py       # Async CocktailDB API client
+shutdown_manager.py     # Signal handlers, atexit DB cleanup, browser watchdog thread
 seed.py                 # Optional development seed data
 
 blueprints/
@@ -58,10 +59,24 @@ The easiest way to run the app on Windows is to **double-click `start_app.bat`**
 The launcher will:
 1. Detect your virtual environment (`.venv/` or `venv/`) — or fall back to your system Python.
 2. Install / verify all dependencies from `requirements.txt` automatically.
-3. Start the Flask development server.
-4. Open `http://127.0.0.1:5000` in your default browser after a 3-second delay.
+3. Apply any pending **database migrations** via `flask db upgrade`.  
+   ⚠️ **Your data is never dropped.** The launcher only applies `ALTER TABLE` / `CREATE TABLE` migrations — it never issues a `DROP TABLE`, `TRUNCATE`, or `DELETE`.
+4. Open `http://127.0.0.1:5000` in your default browser after a 4-second warm-up delay.
+5. Start the Flask server with the **browser watchdog** active.
 
-To stop the server, press **CTRL+C** in the console window that opened.
+### Browser Watchdog — Graceful Shutdown on Browser Close
+
+When you close the browser window (or the last tab showing the app), the server detects the loss of heartbeats from the browser JavaScript snippet and performs a **fully graceful shutdown**:
+
+1. The browser pings `POST /api/heartbeat` every 10 seconds while any tab is open.
+2. When the tab closes, the browser fires `navigator.sendBeacon('/api/shutdown')` via the `beforeunload` event listener.
+3. The server receives the beacon (or eventually times out waiting for heartbeats) and calls `shutdown_manager.request_shutdown()`.
+4. `request_shutdown()` sends `SIGTERM` to the Flask process, which triggers all registered `atexit` hooks.
+5. The `atexit` cleanup hook calls `db.session.remove()` and `db.engine.dispose()`, cleanly closing all SQLAlchemy connections and returning pooled connections to the OS.
+
+**No memory leaks. No orphaned database connections. All data alterations persist.**
+
+To stop the server manually, press **Ctrl+C** in the console window. The same cleanup path runs.
 
 > **Prerequisite**: **Python 3.11.x** is required (the project is pinned to
 > `python-3.11.8` in `runtime.txt`).  Python 3.12+ and 3.13 are **not**
@@ -184,6 +199,12 @@ Always run `flask db upgrade` after pulling changes that include new migration f
 ### `app.py`
 Application factory (`create_app()`). Configures the Flask app, registers extensions (SQLAlchemy, Flask-Migrate, Flask-Mail, CSRFProtect, Flask-Caching with RedisCache, Celery, DebugToolbar), wires up the four blueprints, and attaches a security-headers `after_request` hook. The private `_celery_init(app)` helper binds the global Celery singleton to the app's Redis broker/backend and installs a `_FlaskTask` base class so every task body runs inside a pushed application context. A module-level `app = create_app()` is kept for Gunicorn / `run_app.py` compatibility.
 
+Two localhost-only API endpoints are registered near the end of `create_app()` to support graceful shutdown:
+- `POST /api/heartbeat` — CSRF-exempt; browser JS pings this every 10 seconds to reset the watchdog timer.
+- `POST /api/shutdown` — CSRF-exempt; browser JS calls this via `navigator.sendBeacon()` when the tab closes. Only triggers a process shutdown when `BROWSER_WATCHDOG=true`; otherwise returns 204 without side effects (safe for testing).
+
+A `_inject_watchdog_flag()` context processor injects the boolean `browser_watchdog` into every template render so `base.html` conditionally includes the heartbeat JavaScript.
+
 ### `celery_worker.py`
 Worker entry point. Calls `create_app()` (which configures Celery via `_celery_init`) and then imports `services.email_service` to register all tasks before the worker begins consuming queue messages. Start a local worker with:
 ```bash
@@ -267,6 +288,21 @@ Cocktail storage and image handling:
 - `_find_existing_api_cocktail()` — private helper that looks up a shared API cocktail first by the stable `api_cocktail_id` (TheCocktailDB `idDrink`), then falls back to name for legacy rows and back-fills the stable ID.
 - `process_and_store_new_cocktail()` — uses `_find_existing_api_cocktail()` for robust deduplication, uses `flush()` to obtain PKs before building FK rows, and emits a single `commit()`.
 
+### `shutdown_manager.py`
+Centralised graceful-shutdown subsystem. Imported by `run_app.py` and called once via `install(app)` before the development server starts.
+
+**Public API:**
+- `install(app)` — registers the SIGTERM/SIGINT signal handlers and the atexit DB cleanup hook. When `BROWSER_WATCHDOG=true` starts a daemon background thread that monitors heartbeat timestamps.
+- `record_heartbeat()` — resets the watchdog countdown; called by `POST /api/heartbeat` on every browser ping.
+- `request_shutdown()` — sends `SIGTERM` to the current process so Flask and atexit hooks run cleanly instead of `os._exit()`.
+
+**Internal helpers:**
+- `_watchdog_body()` — the daemon thread body. Sleeps in 5-second increments, compares the current time to `_last_heartbeat`, and calls `request_shutdown()` when the browser has been silent for longer than `WATCHDOG_TIMEOUT` seconds (default 30). An initial grace period of `max(10, timeout // 3)` seconds is observed before the timer starts counting, so a slow browser startup never triggers a false-positive shutdown.
+- `_cleanup(app)` — registered as an `atexit` handler. Calls `db.session.remove()` and `db.engine.dispose()` to close the connection pool cleanly and release all file locks, preventing SQLite WAL-file leaks on Windows.
+
+### `run_app.py`
+Development server entry point. Imports `shutdown_manager`, calls `shutdown_manager.install(app)` before `app.run()`, and prints a startup banner indicating whether Browser Watchdog mode is active. Handles `SystemExit` (emitted by `request_shutdown()`) and `KeyboardInterrupt` with distinct exit messages so it is clear which signal caused the shutdown. Set `BROWSER_WATCHDOG=true` in the environment (or use `start_app.bat`) to activate the watchdog thread.
+
 ---
 
 ## API Integration
@@ -306,6 +342,59 @@ The application integrates with the [CocktailDB API](https://www.thecocktaildb.c
 | Login rate limiting | `@limiter.limit("10 per minute")` on `/login` prevents automated brute-force password guessing |
 | Registration rate limiting | `@limiter.limit("5 per hour")` on `/register` prevents bulk account creation and DB exhaustion |
 | XSS protection in flash messages | Jinja2 auto-escaping is preserved for all flash messages; no `\| safe` override is used, preventing stored-XSS via user-controlled content (e.g. usernames) in admin-facing alerts |
+
+---
+
+## Testing
+
+The project ships three test modules, all using Python's built-in `unittest` framework with an in-memory SQLite database (`:memory:`), so no external services are required.
+
+### Running the tests
+
+```bash
+# Run all three suites together (recommended)
+python -m pytest test_app.py test_advanced.py test_graceful_shutdown.py -v
+
+# Or discover and run every test file automatically
+python -m pytest -v
+
+# Or run a single module
+python -m unittest test_advanced -v
+```
+
+### `test_app.py` — Core integration tests
+The original test suite. Three test classes covering the main happy-path and error-path flows:
+- `FlaskTestCase` — authentication lifecycle (register, login, logout, duplicate username/email, email verification gating, ban enforcement), cocktail CRUD, admin panel access controls, profile updates, messaging, and ban appeals.
+- `ModelEdgeCaseTests` — `User.authenticate()` wrong password, empty ingredient name normalisation, token expiry edge cases.
+- `RouteEdgeCaseTests` — 404 on unknown endpoints, CSRF enforcement on POST routes, HTTP method restrictions.
+
+### `test_advanced.py` — Extended edge-case suite
+Twenty test classes (~500 lines) targeting edge cases and security boundaries not covered by the core tests:
+- `SecurityHeaderDetailTests` — asserts all 13 individual security response headers are present and correctly valued.
+- `SessionSecurityTests` — session cookie flags, session invalidation on logout, session isolation between users.
+- `FormBoundaryTests` — oversized inputs, SQL injection payloads, missing required fields, numeric-boundary checks.
+- `UserProfileTests` — preference update, favourite ingredient add/remove, profile access guards.
+- `AdminMessageModelTests` / `UserAppealModelTests` / `AdminAuditLogModelTests` — ORM-level CRUD and cascade/`ON DELETE SET NULL` behaviour.
+- `FavoriteIngredientsRouteTests` — API route happy-path and owner-only guard.
+- `AdminWorkflowExtendedTests` — promotion, demotion, temporary ban, permanent ban, direct unban.
+- `HttpMethodTests` — verifies that GET-only routes reject POST and vice-versa.
+- `CocktailApiMockTests` — mocked `cocktaildb_api` calls so no live network request is made.
+- `ConfigModuleTests` — type checks for all `config.py` exports.
+- `UserMessagesRouteTests` / `AppealEdgeCaseTests` / `ResendVerificationTests` — messaging and appeal edge cases.
+- `CocktailsUsersJoinTests` — join-table insertion, uniqueness, and cascade-delete.
+- `IngredientNormalisationTests` — `store_or_get_ingredient()` case-folding and deduplication.
+- `SaveUploadedImageEdgeCaseTests` / `DeleteImageSecurityTests` — upload validation and path-traversal rejection.
+- `HomepageTests` — redirect behaviour for anonymous, verified, and unverified users.
+
+### `test_graceful_shutdown.py` — Shutdown subsystem tests
+Seven test classes (~380 lines) specifically for the `shutdown_manager` module and its HTTP endpoints. `os.kill` is always patched to prevent the test runner from actually being killed.
+- `ShutdownManagerUnitTests` — unit tests for `install()`, `record_heartbeat()`, `request_shutdown()`, and `_cleanup()`.
+- `WatchdogLogicTests` — validates the watchdog timer: correct grace period, heartbeat resets the timeout, expired timeout triggers shutdown, no-op when watchdog is disabled.
+- `HeartbeatEndpointTests` — `POST /api/heartbeat` returns 204, rejects non-POST methods, rejects remote IPs.
+- `ShutdownEndpointTests` — `POST /api/shutdown` triggers shutdown when `BROWSER_WATCHDOG=true`, is a no-op when disabled, rejects remote IPs.
+- `BrowserWatchdogContextProcessorTests` — verifies the `browser_watchdog` template variable is `True`/`False` for the correct env-var settings and that the heartbeat `<script>` block appears in `base.html` only when the flag is set.
+- `DbCleanupIntegrationTests` — confirms the atexit hook calls `session.remove()` and `engine.dispose()` without raising exceptions.
+- `RunAppModuleTests` — import smoke tests for `run_app.py` that confirm the module loads cleanly and exports a callable `main`.
 
 ---
 

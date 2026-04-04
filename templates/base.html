@@ -83,5 +83,51 @@
       <div class="alert alert-{{ 'danger' if category in ('error', 'danger') else category }}">{{ msg }}</div>
       {% endfor %} {% block content %} {% endblock %}
     </div>
+
+    {# ----------------------------------------------------------------
+       Browser-watchdog heartbeat script.
+       Only injected when the server is running with BROWSER_WATCHDOG=true
+       (i.e. when launched via start_app.bat for local desktop use).
+       The script pings /api/heartbeat every 10 s so the server knows a
+       browser tab is still open, and sends a beacon to /api/shutdown when
+       the user closes the window — triggering a graceful server exit.
+    ----------------------------------------------------------------- #}
+    {% if browser_watchdog %}
+    <script>
+    (function () {
+        'use strict';
+
+        var HEARTBEAT_INTERVAL_MS = 10000;  /* 10 seconds */
+
+        /**
+         * Notify the server that this tab is still alive.
+         * Uses keepalive:true so the request is not cancelled when the
+         * page is in the process of unloading.
+         */
+        function ping() {
+            fetch('/api/heartbeat', {
+                method: 'POST',
+                keepalive: true
+            }).catch(function () {
+                /* Server may already be shutting down — silently ignore. */
+            });
+        }
+
+        /* Start the heartbeat loop immediately. */
+        ping();
+        setInterval(ping, HEARTBEAT_INTERVAL_MS);
+
+        /**
+         * When the user closes the tab or navigates away for good,
+         * notify the server so it can shut down gracefully.
+         * navigator.sendBeacon() is used because it is guaranteed to
+         * complete even during the beforeunload event.
+         */
+        window.addEventListener('beforeunload', function () {
+            navigator.sendBeacon('/api/shutdown');
+        });
+    }());
+    </script>
+    {% endif %}
   </body>
 </html>

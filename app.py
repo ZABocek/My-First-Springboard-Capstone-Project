@@ -208,6 +208,71 @@ def create_app(config_overrides=None):
         response.headers['Content-Security-Policy'] = csp
         return response
 
+    # ------------------------------------------------------------------ #
+    # Browser watchdog API endpoints
+    #
+    # These two endpoints support graceful local-development shutdown:
+    #   POST /api/heartbeat  — browser pings every ~10 s to signal life.
+    #   POST /api/shutdown   — browser sends a beacon on tab close.
+    #
+    # Both endpoints are:
+    #   • Always registered (so tests can reach them unconditionally).
+    #   • Restricted to localhost (127.0.0.1 / ::1) for safety.
+    #   • Exempt from CSRF — neither endpoint modifies application state
+    #     or returns sensitive data; they only update an in-process timer
+    #     or schedule a clean process exit.
+    # ------------------------------------------------------------------ #
+    from flask import abort as _abort  # noqa: PLC0415 (local import to avoid shadow)
+
+    @app.route('/api/heartbeat', methods=['POST'])
+    def _heartbeat():
+        """Browser pings this every 10 s to signal the tab is still open.
+
+        Restricted to localhost. CSRF-exempt (timer reset only; no DB writes).
+        """
+        if request.remote_addr not in ('127.0.0.1', '::1'):
+            _abort(403)
+        import shutdown_manager  # noqa: PLC0415
+        shutdown_manager.record_heartbeat()
+        return '', 204
+
+    @app.route('/api/shutdown', methods=['POST'])
+    def _shutdown():
+        """Browser sends a beacon here on beforeunload (tab/window close).
+
+        Restricted to localhost. Triggers a graceful server shutdown only when
+        BROWSER_WATCHDOG=true is set in the environment (i.e. when launched via
+        start_app.bat). In all other modes it returns 204 as a safe no-op so
+        that the base template's JS snippet does not cause unexpected shutdowns
+        during normal development with ``flask run``.
+        """
+        if request.remote_addr not in ('127.0.0.1', '::1'):
+            _abort(403)
+        if os.environ.get('BROWSER_WATCHDOG', 'false').lower() == 'true':
+            import threading  # noqa: PLC0415
+            import shutdown_manager  # noqa: PLC0415
+            # Defer to let the HTTP response be delivered before the process exits.
+            timer = threading.Timer(0.5, shutdown_manager.request_shutdown)
+            timer.daemon = True
+            timer.start()
+        return '', 204
+
+    # Exempt both internal system endpoints from CSRF protection.
+    csrf.exempt(_heartbeat)
+    csrf.exempt(_shutdown)
+
+    # ------------------------------------------------------------------ #
+    # Template context: inject browser_watchdog flag so base.html can
+    # conditionally include the heartbeat JavaScript snippet.
+    # ------------------------------------------------------------------ #
+    @app.context_processor
+    def _inject_watchdog_flag():
+        return {
+            'browser_watchdog': (
+                os.environ.get('BROWSER_WATCHDOG', 'false').lower() == 'true'
+            )
+        }
+
     return app
 
 
