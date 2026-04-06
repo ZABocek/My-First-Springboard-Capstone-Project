@@ -7,6 +7,7 @@ from flask import Blueprint, render_template, redirect, url_for, session, flash
 from models import db, User
 from forms import RegisterForm, LoginForm
 from extensions import limiter
+from config import ADMIN_USERNAME, ADMIN_EMAIL
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -35,9 +36,33 @@ def register():
 
         # Hash the password and stage the new user record (not yet committed).
         user = User.register(username, email, pwd)
+
+        # Bootstrap admin: if ADMIN_USERNAME and ADMIN_EMAIL are configured in
+        # .env and this registration matches both, promote the user to admin and
+        # mark their email as verified so they can log in immediately.
+        _admin_user = ADMIN_USERNAME.strip()
+        _admin_email = ADMIN_EMAIL.strip()
+        is_bootstrap_admin = (
+            bool(_admin_user) and bool(_admin_email)
+            and username == _admin_user
+            and email.lower() == _admin_email.lower()
+        )
+        if is_bootstrap_admin:
+            user.is_admin = True
+            user.is_email_verified = True
+            user.email_verified_at = datetime.now(timezone.utc).replace(tzinfo=None)
+
         db.session.add(user)
 
         try:
+            # Bootstrap admin skips email verification entirely — commit and
+            # log them straight in.
+            if is_bootstrap_admin:
+                db.session.commit()
+                session['user_id'] = user.id
+                flash("Welcome, admin! Your account has been created and you are now logged in.", "success")
+                return redirect(url_for('users.homepage'))
+
             from services.email_service import send_verification_email
             # Generate a signed, time-limited token.  This may raise if
             # SECRET_KEY is missing — catch it before we commit so the

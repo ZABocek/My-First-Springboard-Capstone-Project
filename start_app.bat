@@ -71,6 +71,32 @@ if !errorlevel! neq 0 (
 echo [OK] All dependencies are satisfied.
 
 :: ────────────────────────────────────────────────────────────────────
+:: Step 2b: Check for email (SMTP) configuration
+::
+:: Registration emails are sent via an SMTP server.  Without a .env
+:: file that points to a real mail server, emails will never arrive.
+:: ────────────────────────────────────────────────────────────────────
+echo.
+if not exist "%~dp0.env" (
+    echo [WARNING] No .env file found.
+    echo           Registration emails will NOT be delivered until you
+    echo           create a .env file with your Gmail SMTP settings.
+    echo           Copy .env.example to .env and follow the instructions
+    echo           inside it.
+    echo.
+) else (
+    findstr /i "^MAIL_SERVER=localhost" "%~dp0.env" >nul 2>&1
+    if !errorlevel! == 0 (
+        echo [WARNING] .env has MAIL_SERVER=localhost, which cannot
+        echo           deliver real email.  Update it with your Gmail
+        echo           SMTP settings.  See .env.example for instructions.
+        echo.
+    ) else (
+        echo [OK] Email configuration found in .env.
+    )
+)
+
+:: ────────────────────────────────────────────────────────────────────
 :: Step 3: Apply pending database migrations
 ::
 :: IMPORTANT: flask db upgrade NEVER drops or truncates tables.
@@ -90,6 +116,21 @@ if !errorlevel! neq 0 (
 ) else (
     echo [OK] Database schema is up-to-date.
 )
+
+:: ────────────────────────────────────────────────────────────────────
+:: Step 3b: Start the Celery email-delivery worker in a separate window
+::
+:: The Celery worker picks up email tasks queued by Flask and delivers
+:: them via the SMTP server configured in .env.  Without this worker
+:: running, verification emails are queued but never sent.
+::
+:: --pool=solo is required on Windows; the default 'prefork' pool uses
+:: multiprocessing which is unreliable on Windows.
+:: ────────────────────────────────────────────────────────────────────
+echo.
+echo [INFO] Starting email-delivery worker in a separate window...
+start "Cocktail Chronicles ^| Email Worker" cmd /k "cd /d "%~dp0" ^&^& %PYTHON_CMD% -m celery -A celery_worker worker --loglevel=warning --pool=solo"
+echo [OK] Email worker window opened  ^(keep it open to receive emails^).
 
 :: ────────────────────────────────────────────────────────────────────
 :: Step 4: Open browser after a short delay
@@ -120,6 +161,7 @@ echo ================================================================
 echo   Server  :  http://127.0.0.1:5000
 echo   Stop    :  Close the browser window   — or —
 echo              Press Ctrl+C in this console.
+echo   Email   :  Handled by the Email Worker window.
 echo   Data    :  Persisted automatically.  Nothing is ever dropped.
 echo ================================================================
 echo.

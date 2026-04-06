@@ -52,6 +52,12 @@ MAIL_DEFAULT_SENDER: str = os.environ.get('MAIL_DEFAULT_SENDER', 'noreply@cockta
 # Keep this private; never commit its real value to version control.
 ADMIN_PASSWORD_KEY: str = os.environ.get('ADMIN_PASSWORD_KEY', 'default-admin-key')
 
+# Bootstrap admin — when a user registers with both of these values the app
+# automatically grants them admin status without requiring email verification.
+# Set these in .env; leave blank to disable the bootstrap feature.
+ADMIN_USERNAME: str = os.environ.get('ADMIN_USERNAME', '')
+ADMIN_EMAIL: str = os.environ.get('ADMIN_EMAIL', '')
+
 # ── External API keys ─────────────────────────────────────────────────────────
 # CocktailDB API — "1" is the public free-tier key embedded in the base URL.
 # Override with a paid key here if the project upgrades to a premium plan.

@@ -27,6 +27,8 @@ from config import (
     MAIL_DEFAULT_SENDER,
     RATELIMIT_ENABLED,
     REDIS_URL,
+    ADMIN_USERNAME,
+    ADMIN_EMAIL,
 )
 from extensions import csrf, mail, migrate, limiter, cache, celery
 
