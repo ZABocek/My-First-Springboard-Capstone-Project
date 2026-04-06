@@ -4,7 +4,8 @@ from datetime import datetime, timedelta, timezone
 
 from flask import Blueprint, render_template, redirect, url_for, session, flash, request
 
-from models import db, User, Cocktail, AdminMessage, UserAppeal, AdminAuditLog
+from sqlalchemy import exists
+from models import db, User, Cocktail, Cocktails_Users, AdminMessage, UserAppeal, AdminAuditLog
 from forms import AdminForm, AdminMessageForm
 from decorators import admin_required
 from extensions import limiter
@@ -98,11 +99,13 @@ def admin_unlock():
 @admin_required
 def admin_panel():
     # Gather high-level counts for the dashboard summary cards.
+    # Use EXISTS so orphaned cocktail rows (no Cocktails_Users link) are excluded.
+    linked = exists().where(Cocktails_Users.cocktail_id == Cocktail.id)
     stats = {
         'total_users': User.query.count(),
-        'total_cocktails': Cocktail.query.count(),
-        'total_api_cocktails': Cocktail.query.filter_by(is_api_cocktail=True).count(),
-        'total_user_cocktails': Cocktail.query.filter_by(is_api_cocktail=False).count(),
+        'total_cocktails': Cocktail.query.filter(linked).count(),
+        'total_api_cocktails': Cocktail.query.filter(linked, Cocktail.is_api_cocktail == True).count(),
+        'total_user_cocktails': Cocktail.query.filter(linked, Cocktail.is_api_cocktail == False).count(),
     }
     users = User.query.all()
     # Surface only unresolved appeals so the admin can action them promptly.

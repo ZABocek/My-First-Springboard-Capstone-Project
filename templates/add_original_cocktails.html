@@ -27,53 +27,6 @@
     {{ form.submit() }}
   </form>
 
-  <script>
-    let ingredientIndex = {{ form.ingredients | length }};
-    document
-      .getElementById("add-ingredient")
-      .addEventListener("click", function () {
-        const ingredientGroup = document.createElement("div");
-        ingredientGroup.classList.add("ingredient-group");
-
-        const ingredientField = document.createElement("input");
-        ingredientField.name = "ingredients-" + ingredientIndex;
-        ingredientField.type = "text";
-        ingredientGroup.appendChild(ingredientField);
-        ingredientGroup.appendChild(document.createElement("br"));
-
-        const measureLabel = document.createElement("strong");
-        measureLabel.innerText = "Measures:";
-        ingredientGroup.appendChild(measureLabel);
-        ingredientGroup.appendChild(document.createElement("br"));
-
-        const measureField = document.createElement("input");
-        measureField.name = "measures-" + ingredientIndex;
-        measureField.type = "text";
-        ingredientGroup.appendChild(measureField);
-        ingredientGroup.appendChild(document.createElement("br"));
-
-        const removeBtn = document.createElement("button");
-        removeBtn.type = "button";
-        removeBtn.className = "remove-ingredient btn btn-sm btn-danger mt-1 mb-2";
-        removeBtn.innerText = "Remove";
-        ingredientGroup.appendChild(removeBtn);
-
-        document
-          .getElementById("ingredient-fields")
-          .appendChild(ingredientGroup);
-        ingredientIndex++;
-      });
-
-    document.getElementById("ingredient-fields").addEventListener("click", function (e) {
-      if (e.target.classList.contains("remove-ingredient")) {
-        const groups = document.querySelectorAll(".ingredient-group");
-        if (groups.length > 1) {
-          e.target.closest(".ingredient-group").remove();
-        } else {
-          alert("At least one ingredient is required!");
-        }
-      }
-    });
-  </script>
+  <script src="/static/add_original_cocktails.js"></script>
 </div>
 {% endblock %}

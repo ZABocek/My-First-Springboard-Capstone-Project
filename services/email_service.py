@@ -19,15 +19,19 @@ from extensions import celery
 # ---------------------------------------------------------------------------
 
 @celery.task(name='email_service.deliver', ignore_result=True)
-def _deliver(subject, recipients, body):
-    """Send a pre-built plain-text email via Flask-Mail.
+def _deliver(subject, recipients, body, html=None):
+    """Send a plain-text (and optionally HTML) email via Flask-Mail.
 
     All arguments are plain JSON-serialisable types so the task is
-    compatible with Celery's default JSON serialiser.
+    compatible with Celery's default JSON serialiser.  When *html* is
+    provided the message is sent as multipart/alternative so email
+    clients that support HTML will render the anchor tag instead of the
+    raw URL, preventing quoted-printable line-wrapping from breaking the
+    verification link.
     """
     from extensions import mail
     try:
-        mail.send(Message(subject=subject, recipients=recipients, body=body))
+        mail.send(Message(subject=subject, recipients=recipients, body=body, html=html))
     except Exception as exc:
         logging.error("Celery email delivery failed: %s", exc)
         raise  # propagate so Celery marks the task as FAILURE
@@ -39,25 +43,29 @@ def _deliver(subject, recipients, body):
 
 def send_verification_email(user, token):
     """Queue an email-verification message for a newly registered user."""
-    from helpers import generate_email_verification_email
+    from helpers import generate_email_verification_email, generate_email_verification_html
     link = url_for('auth.verify_email', token=token, _external=True)
     body = generate_email_verification_email(user.username, link)
+    html = generate_email_verification_html(user.username, link)
     _deliver.delay(
         subject="Verify Your Email - Cocktail Chronicles",
         recipients=[user.email],
         body=body,
+        html=html,
     )
 
 
 def send_resend_verification_email(user, token):
     """Queue a re-send of the email-verification message."""
-    from helpers import generate_email_resend_verification_email
+    from helpers import generate_email_resend_verification_email, generate_email_verification_html
     link = url_for('auth.verify_email', token=token, _external=True)
     body = generate_email_resend_verification_email(user.username, link)
+    html = generate_email_verification_html(user.username, link)
     _deliver.delay(
         subject="Verify Your Email - Cocktail Chronicles (Resend)",
         recipients=[user.email],
         body=body,
+        html=html,
     )
 
 

@@ -101,8 +101,11 @@ def add_api_cocktails():
             try:
                 # Delegate storage to the service layer, which handles deduplication
                 # (shared API rows) and emits a single commit.
-                process_and_store_new_cocktail(cocktail_detail, user_id)
-                flash(f"Added {cocktail_detail['strDrink']} to your cocktails!", 'success')
+                newly_added = process_and_store_new_cocktail(cocktail_detail, user_id)
+                if newly_added:
+                    flash(f"Added {cocktail_detail['strDrink']} to your cocktails!", 'success')
+                else:
+                    flash(f"{cocktail_detail['strDrink']} is already in your profile.", 'info')
             except Exception as e:
                 current_app.logger.error(f"Failed to store cocktail: {e}")
                 flash('Failed to save the selected cocktail. Please try again.', 'danger')
@@ -362,6 +365,14 @@ def edit_cocktail(cocktail_id):
         ).first()
         if api_rel:
             db.session.delete(api_rel)
+            # Flush so the count below reflects the deletion already staged.
+            db.session.flush()
+            # If no other user still references the shared API record, remove
+            # it entirely to prevent orphaned rows inflating admin stats.
+            # The cascade on Cocktail.ct_users2 and .ingredients_relation
+            # handles child-row cleanup automatically.
+            if Cocktails_Users.query.filter_by(cocktail_id=original_cocktail.id).count() == 0:
+                db.session.delete(original_cocktail)
 
         copy_rel = Cocktails_Users.query.filter_by(
             user_id=user_id, cocktail_id=user_copy.id
@@ -370,7 +381,11 @@ def edit_cocktail(cocktail_id):
             db.session.add(Cocktails_Users(user_id=user_id, cocktail_id=user_copy.id))
 
         db.session.commit()
-        cocktail = user_copy
+        # Redirect to the copy's own URL so the edit form POSTs to the
+        # correct endpoint.  Without this the form still targets the API
+        # cocktail's ID, whose Cocktails_Users link was just removed, causing
+        # the ownership check on POST to fire the permission error.
+        return redirect(url_for('cocktails.edit_cocktail', cocktail_id=user_copy.id))
     else:
         # Already a user-created (non-API) cocktail — edit in place.
         cocktail = original_cocktail

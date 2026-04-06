@@ -128,8 +128,12 @@ if !errorlevel! neq 0 (
 :: multiprocessing which is unreliable on Windows.
 :: ────────────────────────────────────────────────────────────────────
 echo.
+echo [INFO] Stopping any existing Celery workers before starting a fresh one...
+%PYTHON_CMD% -m celery -A celery_worker control shutdown >nul 2>&1
+timeout /t 2 >nul 2>&1
+
 echo [INFO] Starting email-delivery worker in a separate window...
-start "Cocktail Chronicles ^| Email Worker" cmd /k "cd /d "%~dp0" ^&^& %PYTHON_CMD% -m celery -A celery_worker worker --loglevel=warning --pool=solo"
+start "Cocktail Chronicles Email Worker" /d "%~dp0." cmd /k %PYTHON_CMD% -m celery -A celery_worker worker --loglevel=warning --pool=solo
 echo [OK] Email worker window opened  ^(keep it open to receive emails^).
 
 :: ────────────────────────────────────────────────────────────────────

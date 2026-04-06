@@ -194,15 +194,35 @@ def process_and_store_new_cocktail(cocktail_api: dict, user_id: int) -> None:
                     )
 
         # Link the cocktail to the user only if they don't already have it.
-        if not Cocktails_Users.query.filter_by(
+        # Also guard against the case where the user previously edited this
+        # API cocktail (creating a personal copy) which swapped the
+        # Cocktails_Users link away from the shared API record.  Without this
+        # check the guard below would miss the personal copy and create a
+        # duplicate entry in the user's profile.
+        already_linked = Cocktails_Users.query.filter_by(
             user_id=user_id, cocktail_id=new_cocktail.id
-        ).first():
+        ).first()
+        has_personal_copy = (
+            Cocktail.query
+            .join(Cocktails_Users, Cocktails_Users.cocktail_id == Cocktail.id)
+            .filter(
+                Cocktails_Users.user_id == user_id,
+                Cocktail.is_api_cocktail == False,
+                Cocktail.name == new_cocktail.name,
+            )
+            .first()
+        ) if not already_linked else None
+
+        newly_added = False
+        if not already_linked and not has_personal_copy:
             db.session.add(
                 Cocktails_Users(user_id=user_id, cocktail_id=new_cocktail.id)
             )
+            newly_added = True
 
         # Single commit covers all rows prepared above.
         db.session.commit()
+        return newly_added
 
     except Exception:
         db.session.rollback()

@@ -181,6 +181,21 @@ def login():
         # Verify credentials via bcrypt check inside User.authenticate.
         user = User.authenticate(form.username.data, form.password.data)
         if user:
+            # Bootstrap admin recovery: if ADMIN_USERNAME/ADMIN_EMAIL match
+            # this user but the account wasn't granted admin at registration
+            # time (e.g. .env was configured after the account was created),
+            # apply the bootstrap grant now.
+            _admin_user = ADMIN_USERNAME.strip()
+            _admin_email = ADMIN_EMAIL.strip()
+            if (bool(_admin_user) and bool(_admin_email)
+                    and user.username == _admin_user
+                    and user.email.lower() == _admin_email.lower()
+                    and (not user.is_admin or not user.is_email_verified)):
+                user.is_admin = True
+                user.is_email_verified = True
+                user.email_verified_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                db.session.commit()
+
             # Block login until the user has confirmed ownership of their email.
             # Redirect to verification_pending (which already shows the resend
             # button) rather than embedding an HTML link in a flash message.

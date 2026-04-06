@@ -17,40 +17,12 @@
       <p><strong>Instructions:</strong> {{ cocktail.instructions }}</p>
       <hr>
       <a href="{{ url_for('cocktails.edit_cocktail', cocktail_id=cocktail.id) }}" class="btn btn-primary">Edit</a>
-      <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal{{ cocktail.id }}">Delete</button>
-      <hr>
-      
-      <!-- Delete Confirmation Modal -->
-      <div class="modal fade" id="deleteModal{{ cocktail.id }}" tabindex="-1" role="dialog" aria-labelledby="deleteModalLabel{{ cocktail.id }}" aria-hidden="true">
-        <div class="modal-dialog" role="document">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h5 class="modal-title" id="deleteModalLabel{{ cocktail.id }}">Confirm Deletion</h5>
-              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-              <p>Are you sure you want to delete <strong>{{ cocktail.name }}</strong>? This action cannot be undone.</p>
-            </div>
-            <div class="modal-footer">
-              <form method="POST" action="{{ url_for('cocktails.delete_cocktail', cocktail_id=cocktail.id) }}" style="display:inline;">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                <button type="submit" class="btn btn-success">Yes</button>
-              </form>
-              <button type="button" class="btn btn-danger" data-bs-dismiss="modal">No</button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <form method="POST" action="{{ url_for('cocktails.delete_cocktail', cocktail_id=cocktail.id) }}" style="display:inline;"
+            onsubmit="return confirm('Are you sure you want to delete {{ cocktail.name }}? This action cannot be undone.');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <button type="submit" class="btn btn-danger">Delete</button>
+      </form>
     {% endfor %}
   </div>
   
-  <!-- Cancellation Message Script -->
-  <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get('cancelled') === 'true') {
-        alert('Deletion cancelled');
-      }
-    });
-  </script>
 {% endblock %}

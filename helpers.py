@@ -121,6 +121,34 @@ The Cocktail Chronicles Team
     """.strip()
     return email_body
 
+def generate_email_verification_html(username, verification_link):
+    """Return an HTML email body for email verification (both initial and resend).
+
+    Using an HTML anchor tag prevents plain-text quoted-printable line-wrapping
+    from breaking the verification URL when email clients encode long lines.
+    """
+    escaped_link = verification_link.replace('&', '&amp;').replace('"', '&quot;')
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"></head>
+<body style="font-family:Arial,sans-serif;color:#222;max-width:600px;margin:0 auto;padding:20px">
+  <h2 style="color:#c0392b">Cocktail Chronicles</h2>
+  <p>Hello <strong>{username}</strong>,</p>
+  <p>Thank you for signing up! Please verify your email address by clicking the button below:</p>
+  <p style="text-align:center;margin:30px 0">
+    <a href="{escaped_link}"
+       style="background:#c0392b;color:#fff;padding:12px 28px;text-decoration:none;border-radius:4px;font-size:16px">
+      Verify My Email
+    </a>
+  </p>
+  <p>If the button does not work, copy and paste this link into your browser:</p>
+  <p style="word-break:break-all;font-size:13px;color:#555">{escaped_link}</p>
+  <p style="font-size:12px;color:#888">This link expires in 24 hours. If you did not create an account, you can safely ignore this email.</p>
+  <p>The Cocktail Chronicles Team</p>
+</body>
+</html>"""
+
+
 def generate_email_resend_verification_email(username, verification_link):
     """Generate email for resending verification link."""
     email_body = f"""

@@ -31,28 +31,5 @@
     <div>{{ form.submit(class="btn btn-success") }}</div>
   </form>
 </div>
-<script>
-  // JavaScript for adding and removing ingredient fields
-  $('input[type="file"]').on("change", function () {
-    var files = $(this).prop("files");
-    if (files && files[0]) {
-      var img = $("img"); // the <img> tag to show the preview
-      img.attr("src", URL.createObjectURL(files[0]));
-      img.on("load", function () {
-        URL.revokeObjectURL(img.attr("src"));
-      });
-    }
-  });
-
-  $(document).ready(function () {
-    $("form").on("click", ".remove-ingredient", function () {
-      if ($("#ingredients .ingredient").length > 1) {
-        $(this).parent(".ingredient").remove();
-      } else {
-        // Flash a warning message.
-        alert("At least one ingredient is required!"); // Replace this with a more user-friendly flash message if you want.
-      }
-    });
-  });
-</script>
+<script src="/static/edit_my_cocktails.js"></script>
 {% endblock %}
