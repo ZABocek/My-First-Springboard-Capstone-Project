@@ -274,6 +274,14 @@ def add_original_cocktails():
             # return the form with the error message (do NOT save the cocktail).
             db.session.rollback()
             flash(str(e), 'danger')
+            if 'File type not allowed' not in str(e):
+                # The file content itself is corrupt or suspicious — warn the user.
+                flash(
+                    'Warning: Do not attempt to upload this file again. '
+                    'Repeatedly uploading corrupted or invalid image files may result '
+                    'in your account being permanently banned.',
+                    'warning',
+                )
             return render_template('add_original_cocktails.html', form=form)
 
         # Single commit covers all the rows prepared above.
@@ -413,6 +421,14 @@ def edit_cocktail(cocktail_id):
         except ValueError as e:
             db.session.rollback()
             flash(str(e), 'danger')
+            if 'File type not allowed' not in str(e):
+                # The file content itself is corrupt or suspicious — warn the user.
+                flash(
+                    'Warning: Do not attempt to upload this file again. '
+                    'Repeatedly uploading corrupted or invalid image files may result '
+                    'in your account being permanently banned.',
+                    'warning',
+                )
             return render_template('edit_my_cocktails.html', form=form, cocktail=cocktail,
                                    resolved_image=get_cocktail_image_url(cocktail))
 
