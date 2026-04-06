@@ -2,17 +2,25 @@
 
 Extracted from app.py to keep route handlers thin and testable.
 """
+import io
 import os
 import logging
 import uuid
+import warnings
 
-from werkzeug.utils import secure_filename
+from PIL import Image
 from flask import current_app, url_for
 
 from models import db, Cocktail, Cocktails_Users, Cocktails_Ingredients, Ingredient
 
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
+
+# Cap total pixels to ~10 MP — well above any reasonable cocktail photo,
+# well below a decompression-bomb payload.  Pillow raises
+# DecompressionBombWarning (which we promote to an error inside
+# save_uploaded_image) when this limit is exceeded.
+Image.MAX_IMAGE_PIXELS = 10_000_000
 
 # Issue #6: Use full magic-byte signatures for robust content-type validation.
 # PNG: 8-byte signature.  JPEG: 3-byte FF D8 FF prefix.
@@ -43,33 +51,77 @@ def save_uploaded_image(image_file) -> str | None:
 
     Returns the stored filename (not the full path), or ``None`` when no file
     was provided.  Raises ``ValueError`` for invalid or disallowed files.
+
+    Three-layer defence against malicious uploads:
+
+    1. **Extension allow-list** — fast first gate that rejects obviously wrong
+       file types before any further processing.
+    2. **Magic-byte check** — inspects the first bytes of the stream to catch
+       extension spoofing (e.g. a PHP shell renamed to ``evil.jpg``).
+    3. **Pillow re-encode** — opens the file, forces a full pixel decode
+       (``img.load()``), then writes a brand-new image to a clean buffer.
+       This strips *all* metadata (EXIF, ICC profiles, comments, thumbnails)
+       and destroys any polyglot payload (files that are simultaneously valid
+       images and executable scripts).  Decompression-bomb files and corrupt
+       /truncated data are also caught here before touching the filesystem.
     """
     if not image_file or not image_file.filename:
         return None
 
-    # First gate: allow-list based on file extension.
+    # Gate 1: allow-list based on file extension.
     if not allowed_file(image_file.filename):
         raise ValueError(
             "File type not allowed. Please upload a PNG, JPG, or JPEG image."
         )
 
-    # Second gate: inspect actual file content to prevent extension spoofing.
+    # Gate 2: inspect actual file content to prevent extension spoofing.
     if not _is_valid_image_content(image_file.stream):
         raise ValueError(
             "Uploaded file does not appear to be a valid image."
         )
 
-    # Sanitise the filename to strip path components and special characters,
-    # then prepend a UUID so identical names never silently overwrite each other.
-    # Issue #4: UUID prefix prevents filename collisions and enumeration.
-    filename = f"{uuid.uuid4().hex}_{secure_filename(image_file.filename)}"
+    # Gate 3: Re-encode through Pillow to neutralise any embedded payload.
+    # ``warnings.catch_warnings`` promotes DecompressionBombWarning to an
+    # exception so oversized images are rejected before Pillow allocates RAM.
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            img = Image.open(image_file.stream)
+            img.load()  # force full pixel decode — catches corrupt data
+    except Image.DecompressionBombWarning as exc:
+        raise ValueError(
+            "Image is too large to process safely."
+        ) from exc
+    except OSError as exc:
+        # Covers PIL.UnidentifiedImageError (not a real image) and any
+        # other I/O or decoding failure; UnidentifiedImageError derives
+        # from OSError so one clause handles both.
+        raise ValueError(
+            "Uploaded file is not a valid or supported image."
+        ) from exc
+
+    # Re-encode to a clean buffer.  Preserve transparency with PNG; use JPEG
+    # for everything else to keep file sizes reasonable.
+    output_format = "PNG" if img.mode in ("RGBA", "P") else "JPEG"
+    if img.mode not in ("RGB", "RGBA"):
+        img = img.convert("RGB")
+
+    clean_buffer = io.BytesIO()
+    img.save(clean_buffer, format=output_format)
+    clean_buffer.seek(0)
+
+    # Build a collision-resistant filename from a UUID only.  The original
+    # user-supplied name is intentionally discarded — it is never safe to
+    # preserve attacker-controlled input as a filesystem path component.
+    ext = "png" if output_format == "PNG" else "jpg"
+    filename = f"{uuid.uuid4().hex}.{ext}"
     uploads_dir = os.path.join(
         current_app.root_path,
         current_app.config['UPLOADED_PHOTOS_DEST'],
     )
-    # Create the upload directory if it does not already exist.
     os.makedirs(uploads_dir, exist_ok=True)
-    image_file.save(os.path.join(uploads_dir, filename))
+    with open(os.path.join(uploads_dir, filename), "wb") as f:
+        f.write(clean_buffer.read())
     return filename
 
 
